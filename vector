@@ -1,0 +1,466 @@
+#ifndef _MY_VECTOR_H
+#define _MY_VECTOR_H 1
+
+#include<cstring>
+#include<memory>
+#include<algorithm>
+#include<type_traits>
+#include<initializer_list>
+
+#include"std.h"
+
+#define _MEMCPYABLE(T) constexpr(std::is_trivially_copyable_v<T>)
+#define _MEMCPY_THRESHOLD 8
+#define _MEMSETABLE(T) constexpr(std::is_trivially_default_constructible_v<T>)
+#define _MEMSET_THRESHOLD 8
+
+namespace stl_with_memory_pool{
+
+template<class T,class Allocator=allocator<T>> struct vector{
+	using value_type=T;
+	using allocator_type=Allocator;
+	using size_type=uint32_t;
+	using difference_type=int;
+	using reference=value_type&;
+	using const_reference=const value_type&;
+	using pointer=typename std::allocator_traits<Allocator>::pointer;
+	using const_pointer=typename std::allocator_traits<Allocator>::const_pointer;
+	using iterator=T*;
+	using const_iterator=const T*;
+	using reverse_iterator=std::reverse_iterator<iterator>;
+	using const_reverse_iterator=std::reverse_iterator<const_iterator>;
+
+private:
+	size_type n,c;T* p;
+	
+	constexpr void _realloc(){
+		T* op=p;
+		p=Allocator().allocate(c);
+		if(!op)return;
+		auto bf=[&]{
+			for(size_type i=0;i<n;i++)
+				std::construct_at(p+i,std::move(op[i]));
+		};
+		if _MEMCPYABLE(T){
+			if(auto s=n*sizeof(T);s>_MEMCPY_THRESHOLD)
+				memcpy(p,op,s);
+			else bf();
+		}else bf();
+	}
+	
+	constexpr void _set_0(int i,int j){
+		auto bf=[&]{
+			auto a=Allocator();
+			for(int I=i;I<j;I++)
+				std::allocator_traits<Allocator>::construct(a,p+I);
+		};
+		if _MEMSETABLE(T){
+			if(auto s=(j-i)*sizeof(T);s>=_MEMSET_THRESHOLD)
+				memset(p+i,0,s);
+			else bf();
+		}else bf();
+	}
+	constexpr void _set(int i,const T& value){
+		if _MEMCPYABLE(T){
+			if(auto s=sizeof(T);s>_MEMCPY_THRESHOLD)
+				memcpy(p+i,std::addressof(value),s);
+			else std::construct_at(p+i,value);
+		}else std::construct_at(p+i,value);
+	}
+	
+	constexpr void _move_bk(int j,int i){
+		int c=j-i;
+		auto bf=[&]{for(int I=n-1;I>=i;I--)std::construct_at(p+I+c,std::move(p[I]));};
+		if _MEMCPYABLE(T){
+			if(auto s=(n-i)*sizeof(T);s>_MEMCPY_THRESHOLD)
+				memmove(p+j,p+i,s);
+			else bf();
+		}else bf();
+	}
+	constexpr void _move_fr(int i,int j){
+		int c=j-i;
+		auto bf=[&]{for(int I=i;I+c<(int)n;I++)std::construct_at(p+I,std::move(p[I+c]));};
+		if _MEMCPYABLE(T){
+			if(auto s=(n-j)*sizeof(T);s>=_MEMCPY_THRESHOLD)
+				memmove(p+i,p+j,s);
+			else bf();
+		}else bf();
+	}
+	
+public:
+	constexpr size_type capacity()const{return c;}
+	constexpr size_type size()const{return n;}
+	constexpr T* data(){return p;}
+	constexpr const T* data()const{return p;}
+	constexpr allocator_type get_allocator()const{return Allocator();}
+
+	const T& at(size_type pos)const{
+		if(pos>=n)throw std::out_of_range("Debug your code and then use operator[] instead");
+		return p[pos];
+	}
+	T& at(size_type pos){
+		if(pos>=n)throw std::out_of_range("Debug your code and then use operator[] instead");
+		return p[pos];
+	}
+
+	constexpr T& operator[](size_type pos){return p[pos];}
+	constexpr const T& operator[](size_type pos)const{return p[pos];}
+	
+	constexpr T& front(){return *p;}
+	constexpr const T& front()const{return *p;}
+	
+	constexpr T& back(){return p[n-1];}
+	constexpr const T& back()const{return p[n-1];}
+	
+	constexpr iterator begin(){return p;}
+	constexpr const_iterator begin()const{return p;}
+	constexpr const_iterator cbegin()const{return p;}
+	constexpr iterator end(){return p+n;}
+	constexpr const_iterator end()const{return p+n;}
+	constexpr const_iterator cend()const{return p+n;}
+	
+	constexpr reverse_iterator rbegin(){return reverse_iterator{p+n};}
+	constexpr const_reverse_iterator rbegin()const{return const_reverse_iterator{p+n};}
+	constexpr const_reverse_iterator crbegin()const{return const_reverse_iterator{p+n};}
+	constexpr reverse_iterator rend(){return reverse_iterator{p};}
+	constexpr const_reverse_iterator rend()const{return const_reverse_iterator{p};}
+	constexpr const_reverse_iterator crend()const{return const_reverse_iterator{p};}
+	
+	constexpr bool empty()const{return !n;}
+	constexpr size_type max_size()const{return 1e9;}
+	
+	constexpr void reserve(size_type cap){
+		if(cap>c)c=cap,_realloc();
+	}
+	constexpr void shrink_to_fit(){}
+	constexpr void clear(){n=0;}
+	
+	constexpr vector():n(0),c(0),p(nullptr){}
+	constexpr explicit vector(const Allocator&):n(0),c(0),p(nullptr){}
+	constexpr vector(size_type count,const T&value,const Allocator& alloc=Allocator()):n(count),c(count){
+		p=alloc.allocate(c);
+		for(size_type i=0;i<n;i++)_set(i,value);
+	}
+	constexpr explicit vector(size_type count,const Allocator& alloc=Allocator()):n(count),c(count){
+		p=alloc.allocate(c);_set_0(0,n);
+	}
+	template<std::forward_iterator ForwardIt>
+	constexpr vector(ForwardIt first,ForwardIt last,const Allocator& alloc=Allocator()){
+		n=c=std::distance(first,last);
+		p=alloc.allocate(c);
+		if (std::contiguous_iterator<ForwardIt>){
+			auto bf=[&]{
+				for(size_type i=0;i<n;i++)_set(i,*first++);
+			};
+			if _MEMCPYABLE(T){
+				if(auto s=n*sizeof(T);s>_MEMCPY_THRESHOLD)
+					memcpy(p,std::to_address(first),s);
+				else bf();
+			}else bf();
+		}else{
+			for(size_type i=0;i<n;i++)_set(i,*first++);
+		}
+	}
+	template<std::input_iterator InputIt>
+	constexpr vector(InputIt first,InputIt last,const Allocator& alloc=Allocator()){
+		n=c=0;p=nullptr;
+		while(first!=last)push_back(*first++);
+	}
+	constexpr vector(const vector& other){
+		n=other.n;c=other.c;
+		p=Allocator().allocate(c);
+		auto bf=[&]{for(size_type i=0;i<n;i++)std::construct_at(p+i,other.p[i]);};
+		if _MEMCPYABLE(T){
+			if(auto s=n*sizeof(T);s>_MEMCPY_THRESHOLD)
+				memcpy(p,other.p,s);
+			else bf();
+		}else bf();
+	}
+	constexpr vector(const vector& other,const Allocator& alloc){
+		n=other.n;c=other.c;
+		p=alloc.allocate(c);
+		auto bf=[&]{for(size_type i=0;i<n;i++)std::construct_at(p+i,other.p[i]);};
+		if _MEMCPYABLE(T){
+			if(auto s=n*sizeof(T);s>_MEMCPY_THRESHOLD)
+				memcpy(p,other.p,s);
+			else bf();
+		}else bf();
+	}
+	constexpr vector(vector&& other)noexcept:n(other.n),c(other.c),p(other.p){
+		other.n=other.c=0;other.p=nullptr;
+	}
+	constexpr vector(vector&& other,const Allocator&)noexcept:n(other.n),c(other.c),p(other.p){
+		other.n=other.c=0;other.p=nullptr;
+	}
+	constexpr vector(std::initializer_list<T> init,const Allocator& alloc=Allocator()){
+		n=c=init.size();
+		p=alloc.allocate(c);
+		auto it=init.begin();
+		auto bf=[&]{for(size_type i=0;i<n;i++)std::construct_at(p+i,*it++);};
+		if _MEMCPYABLE(T){
+			if(auto s=n*sizeof(T);s>_MEMCPY_THRESHOLD)
+				memcpy(p,std::to_address(it),s);
+			else bf();
+		}else bf();
+	}
+	
+	constexpr iterator insert(const_iterator pos,const T& value){
+		int i=pos-p;
+		if(n==c)c=(c+1)*2,_realloc();
+		_move_bk(i+1,i);
+		++n;_set(i,value);
+		return p+i;
+	}
+	constexpr iterator insert(const_iterator pos,T&& value){
+		int i=pos-p;
+		if(n==c)c=(c+1)*2,_realloc();
+		_move_bk(i+1,i);
+		++n;std::construct_at(p+i,std::move(value));
+		return p+i;
+	}
+	constexpr iterator insert(const_iterator pos,size_type count,const T& value){
+		int i=pos-p;
+		if(n+count>c)c=(n+count)*2,_realloc();
+		_move_bk(i+count,i);
+		n+=count;
+		for(int I=i;I<i+count;I++)_set(I,value);
+		return p+i;
+	}
+	template<std::forward_iterator ForwardIt>
+	constexpr iterator insert(const_iterator pos,ForwardIt first,ForwardIt last){
+		int i=pos-p,count=std::distance(first,last);
+		if(n+count>c)c=(n+count)*2,_realloc();
+		_move_bk(i+count,i);
+		n+=count;
+		auto bf=[&]{for(int I=i;I<i+count;I++)std::construct_at(p+I,*first++);};
+		if _MEMCPYABLE(T){
+			if constexpr(std::contiguous_iterator<ForwardIt>){
+				if(auto s=count*sizeof(T);s>_MEMCPY_THRESHOLD)
+					memcpy(p+i,std::to_address(first),s);
+				else bf();
+			}else{
+				if(auto s=sizeof(T);s>=_MEMCPY_THRESHOLD)
+					for(int I=i;I<i+count;I++)
+						memcpy(p+I,std::to_address(first++),s);
+				else bf();
+			}
+		}else bf();
+		return p+i;
+	}
+	template<std::input_iterator InputIt>
+	constexpr iterator insert(const_iterator pos,InputIt first,InputIt last){
+		int i=pos-p,on=n;
+		while(first!=last)push_back(*first++);
+		std::rotate(p+i,p+on,p+n);
+		return p+i;
+	}
+	constexpr iterator insert(const_iterator pos,std::initializer_list<T> ilist){
+		return insert(pos,ilist.begin(),ilist.end());
+	}
+	
+	//FIXME: args may refer to self
+	template<class... Args>
+	constexpr iterator emplace(const_iterator pos,Args&&... args){
+		int i=pos-p;
+		if(n==c)c=(n+1)*2,_realloc();
+		_move_bk(i+1,i);n++;
+		std::construct_at(p+i,std::forward<Args>(args)...);
+		return p+i;
+	}
+	template<class... Args>
+	constexpr T& emplace_back(Args&&... args){
+		if(n==c)c=(n+1)*2,_realloc();
+		std::construct_at(p+n,std::forward<Args>(args)...);
+		return p[n++];
+	}
+	
+	constexpr iterator erase(const_iterator pos){
+		int i=pos-p;
+		if(i!=n-1)_move_fr(i,i+1);
+		n--;return (iterator)pos;
+	}
+	constexpr iterator erase(const_iterator first,const_iterator last){
+		int i=first-p,j=last-p;
+		if(j!=(int)n)_move_fr(i,j);
+		n-=j-i;return (iterator)first;
+	}
+	
+	constexpr void push_back(const T& value){
+		if(n==c)c=(c+1)*2,_realloc();
+		std::construct_at(p+n++,value);
+	}
+	constexpr void push_back(T&& value){
+		if(n==c)c=(c+1)*2,_realloc();
+		std::construct_at(p+n++,std::move(value));
+	}
+	
+	constexpr vector& operator+=(const T& value){
+		push_back(value);
+		return *this;
+	}
+	constexpr vector& operator+=(T&& value){
+		push_back(std::move(value));
+		return *this;
+	}
+	constexpr vector& operator+=(const vector& other){
+		insert(end(),other.begin(),other.end());
+		return *this;
+	}
+	constexpr vector& operator+=(vector&& other){
+		reserve(n+other.n);
+		for(auto&i:other)
+			emplace_back(std::move(i));
+		return *this;
+	}
+	constexpr vector& operator+=(std::initializer_list<T> ilist){
+		insert(end(),ilist.begin(),ilist.end());
+		return *this;
+	}
+	
+	constexpr T pop_back(){
+		//WARNING: returns the last element rather than void
+		T b=std::move(p[--n]);
+		return b;
+	}
+	
+	constexpr void resize(size_type count){
+		auto on=n;n=count;
+		if(n>c)c=n,_realloc();
+		if(on<n)_set_0(on,n);
+	}
+	constexpr void resize(size_type count,const T& value){
+		auto on=n;n=count;
+		if(n>c)c=n,_realloc();
+		for(auto i=on;i<n;i++)_set(i,value);
+	}
+	constexpr void swap(vector& other)noexcept{
+		std::swap(n,other.n);
+		std::swap(p,other.p);
+		std::swap(c,other.c);
+	}
+	constexpr void assign(size_type count,const T& value){
+		std::construct_at(this,count,value);
+	}
+	template<std::input_iterator InputIt>
+	constexpr void assign(InputIt first,InputIt last){
+		std::construct_at(this,first,last);
+	}
+	constexpr void assign(std::initializer_list<T> ilist){
+		std::construct_at(this,ilist);
+	}
+	
+	constexpr vector& operator=(const vector& other){
+		std::construct_at(this,other);
+		return *this;
+	}
+	constexpr vector& operator=(vector&& other)noexcept{
+		std::construct_at(this,std::move(other));
+		return *this;
+	}
+	constexpr vector& operator=(std::initializer_list<T> ilist){
+		std::construct_at(this,ilist);
+		return *this;
+	}
+};
+	
+	template<class T,class Alloc>
+	constexpr void swap(vector<T,Alloc> &a,vector<T,Alloc> &b)noexcept{
+		a.swap(b);
+	}
+	
+	template<class T,class Alloc>
+	vector<T,Alloc> operator+(const vector<T,Alloc>& lhs,const vector<T,Alloc>& rhs){
+		auto ans=lhs;ans+=rhs;return ans;
+	}
+	template<class T,class Alloc>
+	vector<T,Alloc> operator+(const vector<T,Alloc>& lhs,const T& rhs){
+		auto ans=lhs;ans+=rhs;return ans;
+	}
+	template<class T,class Alloc>
+	vector<T,Alloc> operator+(const vector<T,Alloc>& lhs,T&& rhs){
+		auto ans=lhs;ans+=std::move(rhs);return ans;
+	}
+	template<class T,class Alloc>
+	vector<T,Alloc> operator+(const T& lhs,const vector<T,Alloc>& rhs){
+		auto ans=rhs;ans.insert(ans.begin(),lhs);return ans;
+	}
+	template<class T,class Alloc>
+	vector<T,Alloc> operator+(T&& lhs,const vector<T,Alloc>& rhs){
+		auto ans=rhs;ans.emplace(ans.begin(),std::move(lhs));return ans;
+	}
+	template<class T,class Alloc>
+	vector<T,Alloc> operator+(vector<T,Alloc>&& lhs,vector<T,Alloc>&& rhs){
+		auto ans=std::move(lhs);ans+=std::move(rhs);return ans;
+	}
+	template<class T,class Alloc>
+	vector<T,Alloc> operator+(vector<T,Alloc>&& lhs,const vector<T,Alloc>& rhs){
+		auto ans=std::move(lhs);ans+=rhs;return ans;
+	}
+	template<class T,class Alloc>
+	vector<T,Alloc> operator+(vector<T,Alloc>&& lhs,const T& rhs){
+		auto ans=std::move(lhs);ans+=rhs;return ans;
+	}
+	template<class T,class Alloc>
+	vector<T,Alloc> operator+(vector<T,Alloc>&& lhs,T&& rhs){
+		auto ans=std::move(lhs);ans+=std::move(rhs);return ans;
+	}
+	template<class T,class Alloc>
+	vector<T,Alloc> operator+(const vector<T,Alloc>& lhs,vector<T,Alloc>&& rhs){
+		auto ans=lhs;ans+=std::move(rhs);return ans;
+	}
+	template<class T,class Alloc>
+	vector<T,Alloc> operator+(const T& lhs,vector<T,Alloc>&& rhs){
+		auto ans=std::move(rhs);ans.insert(ans.begin(),lhs);return ans;
+	}
+	template<class T,class Alloc>
+	vector<T,Alloc> operator+(T&& lhs,vector<T,Alloc>&& rhs){
+		auto ans=std::move(rhs);ans.emplace(ans.begin(),std::move(lhs));return ans;
+	}
+}
+
+namespace std{
+	template<class T,class Alloc>
+	constexpr void swap(stl_with_memory_pool::vector<T,Alloc> &a,stl_with_memory_pool::vector<T,Alloc> &b)noexcept{
+		a.swap(b);
+	}
+	
+	template<class T,class Alloc,class U> 
+	constexpr auto erase(stl_with_memory_pool::vector<T,Alloc>& c,const U& value){
+		auto it = std::remove(c.begin(), c.end(), value);
+		auto r = std::distance(it, c.end());
+		c.erase(it, c.end());
+		return r;
+	}
+	
+	template<class T,class Alloc,class Pred> 
+	constexpr auto erase_if(stl_with_memory_pool::vector<T,Alloc>& c,Pred pred){
+		auto it = std::remove_if(c.begin(), c.end(), pred);
+		auto r = std::distance(it, c.end());
+		c.erase(it, c.end());
+		return r;
+	}
+}
+
+template<class T,class Alloc>
+constexpr bool operator==(const stl_with_memory_pool::vector<T,Alloc>&a,const stl_with_memory_pool::vector<T,Alloc>&b){
+	if(a.size()!=b.size())return 0;
+	if constexpr(std::is_integral_v<T>)
+		return !memcmp(a.data(),b.data(),a.size()*sizeof(T));
+	for(uint32_t i=0;i<a.size();i++)if(a[i]!=b[i])return 0;
+	return 1;
+}
+
+template<class T,class Alloc>
+constexpr auto operator<=>(const stl_with_memory_pool::vector<T,Alloc>&a,const stl_with_memory_pool::vector<T,Alloc>&b){
+	for(uint32_t i=0;i<a.size() && i<b.size();i++){
+		if(a[i]!=b[i])return a[i]<=>b[i];
+	}
+	return a.size()<=>b.size();
+}
+
+#undef _MEMCPYABLE
+#undef _MEMSETABLE
+#undef _MEMCPY_THRESHOLD
+#undef _MEMSET_THRESHOLD
+
+#endif
