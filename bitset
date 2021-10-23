@@ -10,12 +10,12 @@ namespace stl_with_memory_pool{
 
 //WARNING: It does NOT detect ANY out-of-ranges, nor throw ANY exceptions.
 template<size_t N> struct bitset{
-	friend bitset<N> operator&(const bitset<N>&,const bitset<N>&);
-	friend bitset<N> operator|(const bitset<N>&,const bitset<N>&);
-	friend bitset<N> operator^(const bitset<N>&,const bitset<N>&);
+	template<size_t M> friend bitset<M> operator&(const bitset<M>&,const bitset<M>&);
+	template<size_t M> friend bitset<M> operator|(const bitset<M>&,const bitset<M>&);
+	template<size_t M> friend bitset<M> operator^(const bitset<M>&,const bitset<M>&);
 
 	struct reference{
-	friend class bitset;
+	friend struct bitset;
 	private:
 		__ull*v;int k;
 		reference(__ull&v,int k):v(&v),k(k){}
@@ -25,9 +25,11 @@ template<size_t N> struct bitset{
 		bool operator~()const{return ~*v>>k&1;}
 		reference& operator=(const reference& x){
 			if(x)*v|=1ull<<k;else *v&=~(1ull<<k);
+			return *this;
 		}
 		reference& operator=(bool x){
 			if(x)*v|=1ull<<k;else *v&=~(1ull<<k);
+			return *this;
 		}
 		reference& flip(){*v^=1ull<<k;return *this;}
 	};
@@ -120,7 +122,7 @@ public:
 	}
 	bitset operator~()const{
 		bitset b;
-		for(size_t i=0;i<c;i++)b[i]=~a[i];
+		for(size_t i=0;i<c;i++)b.a[i]=~a[i];
 		return b;
 	}
 	
@@ -129,8 +131,8 @@ public:
 		size_t k=pos>>6,sft=(k+1<<6)-pos;
 		if(k>=c)return b; // pos>>6 >= (N+63)>>6 => pos>>6 > (N-1)>>6 => pos>N-1 => pos>=N
 		for(size_t i=c-k-1;~i;i--){
-			if(sft<64 && i+k+1<c)b[i+k+1]|=a[i]>>sft;
-			b[i+k]=a[i]<<(64-sft);
+			if(sft<64 && i+k+1<c)b.a[i+k+1]|=a[i]>>sft;
+			b.a[i+k]=a[i]<<(64-sft);
 		}
 		return b;
 	}
@@ -150,8 +152,8 @@ public:
 		size_t k=pos>>6,sft=(k+1<<6)-pos;
 		if(k>=c)return b;
 		for(size_t i=k;i<c;i++){
-			if(sft<64 && i>k)b[i-k-1]|=a[i]<<sft;
-			b[i-k]=a[i]>>(64-sft);
+			if(sft<64 && i>k)b.a[i-k-1]|=a[i]<<sft;
+			b.a[i-k]=a[i]>>(64-sft);
 		}
 		return b;
 	}
@@ -203,7 +205,7 @@ public:
 		to_string(CharT zero=CharT('0'),CharT one=CharT('1'))const{
 		std::basic_string<CharT,Traits,Allocator> s(N,zero);
 		for(size_t i=0;i<N;i++)if(a[i>>6]>>(i&63)&1)
-			s[i]=one;
+			s[N-1-i]=one;
 		return s;
 	}
 	
@@ -245,7 +247,7 @@ bitset<N> operator^(const bitset<N>& lhs,const bitset<N>& rhs){
 template<class CharT,class Traits,size_t N>
 std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& os,
 	const bitset<N>& x){
-	return os<<x.to_string<CharT,Traits>(
+	return os<<x.template to_string<CharT,Traits>(
 		std::use_facet<std::ctype<CharT>>(os.getloc()).widen('0'),
 		std::use_facet<std::ctype<CharT>>(os.getloc()).widen('1'));
 }
