@@ -3,6 +3,9 @@
 
 #include<bit>
 #include<cstring>
+#include<string>
+#include<stdexcept>
+#include<ios>
 
 #include"std.h"
 
@@ -255,8 +258,13 @@ std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& o
 template<class CharT,class Traits,size_t N>
 std::basic_istream<CharT,Traits>& operator>>(std::basic_istream<CharT,Traits>& is,
 	bitset<N>& x){
+	CharT c;
+	while((c=is.peek())!=Traits::eof()){
+		if(!std::use_facet<std::ctype<CharT>>(is.getloc()).is(std::ctype_base::blank,c))
+			break;
+		is>>c;
+	}
 	for(size_t i=0;i<N;i++){
-		CharT c;
 		auto fin=[&]{
 			if(!i)is.setstate(std::ios_base::failbit);
 			x>>=N-i;
@@ -264,7 +272,7 @@ std::basic_istream<CharT,Traits>& operator>>(std::basic_istream<CharT,Traits>& i
 		if(is>>c){
 			if(c==is.widen('0'))x.reset(N-1-i);
 			else if(c==is.widen('1'))x.set(N-1-i);
-			else{fin();return is;}
+			else{is.unget();fin();return is;}
 		}else{fin();return is;}
 	}
 	return is;
