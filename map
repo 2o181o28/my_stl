@@ -1,3 +1,4 @@
+// -*- C++ -*-
 #ifndef _MY_MAP_H
 #define _MY_MAP_H 1
 
@@ -7,6 +8,8 @@
 #include"std.h"
 
 namespace stl_with_memory_pool{
+
+template<class T,class U> concept __rv_as<T,U>=std::is_constructible_v<U,T&&>;
 
 template<class Key, class T, class Compare=std::less<Key>,
 	class Allocator=alloccator<std::pair<const Key, T>>
@@ -51,7 +54,9 @@ template<class T> static bool _Eq(const Key& a,const T& b){return !_Lt(a,b) && !
 static constexpr int B=6;
 struct _Node{
 	short n,fa_id;
-	value_type dat[2*B];
+	char _dat[2*B*sizeof(value_type)]; //bypass initialization
+	constexpr value_type* dat(){return (value_type*)_dat;}
+	constexpr const value_type* dat()const{return (const value_type*)_dat;}
 	_Node **ch,*fa;
 };
 _Node* _Root;size_type _Sz;
@@ -81,16 +86,16 @@ const _Node* _Find_last(const _Node* p)const{ //can return nullptr
 template<class K> iterator _Find(const K& x){
 	_Node* p=_Root;
 	for(short i;;p=p->ch[i]){
-		for(i=0;i<p->n && _Lt(p->dat[i].first,x);i++);
-		if(i<p->n && !_Lt(x,p->dat[i].first))return iterator(p,i);
+		for(i=0;i<p->n && _Lt(p->dat()[i].first,x);i++);
+		if(i<p->n && !_Lt(x,p->dat()[i].first))return iterator(p,i);
 		if(_Leaf(p))return iterator(nullptr,0);
 	}
 }
 template<class K> const_iterator _Find(const K& x)const{
 	const _Node* p=_Root;
 	for(short i;;p=p->ch[i]){
-		for(i=0;i<p->n && _Lt(p->dat[i].first,x);i++);
-		if(i<p->n && !_Lt(x,p->dat[i].first))return const_iterator(p,i);
+		for(i=0;i<p->n && _Lt(p->dat()[i].first,x);i++);
+		if(i<p->n && !_Lt(x,p->dat()[i].first))return const_iterator(p,i);
 		if(_Leaf(p))return const_iterator(nullptr,0);
 	}
 }
@@ -101,29 +106,30 @@ _Node* _New_node(short n,short id,_Node* fa){
 	return p;
 }
 
-template<class K> std::pair<iterator,bool> _Find_or_insert(const K& x){
+//FIXME: dtor
+template<class K> std::pair<iterator,bool> _Find_or_insert(K x){
 	_Node* p=_Root;short i;
 	for(;;p=p->ch[i]){
-		for(i=0;i<p->n && _Lt(p->dat[i].first,x);i++);
-		if(i<p->n && !_Lt(x,p->dat[i].first))return {iterator(p,i),false};
+		for(i=0;i<p->n && _Lt(p->dat()[i].first,x);i++);
+		if(i<p->n && !_Lt(x,p->dat()[i].first))return {iterator(p,i),false};
 		if(_Leaf(p))break;
 	}
 	for(short j=p->n-1;j>=i;j--)
-		std::construct_at(p->dat+j+1,std::move(p->dat[j]));
-	p->n++;std::construct_at(p->dat+i,x);
+		std::construct_at(p->dat()+j+1,std::move(p->dat()[j]));
+	p->n++;std::construct_at(std::addressof(p->dat()[i].first),std::move(x));
 	iterator ret(p,i);bool fix=false;
 	
 	auto split=[&]{
 		_Node* f=p->fa;short id=p->fa_id;
 		for(short j=f->n;j>id;j--)
 			f->ch[j+1]=f->ch[j],f->ch[j+1]->fa_id++,
-			std::construct_at(f->dat+j,std::move(f->dat[j-1]));
+			std::construct_at(f->dat()+j,std::move(f->dat()[j-1]));
 		f->n++;
 		constexpr short l=B,r=B-1;
-		std::construct_at(f->dat+id,std::move(p->dat[l]));
+		std::construct_at(f->dat()+id,std::move(p->dat()[l]));
 		_Node* q=_New_node(r,id+1,f);
 		for(short j=l+1;j<2*B;j++)
-			std::construct_at(q->dat+j-l-1,std::move(p->dat[j]));
+			std::construct_at(q->dat()+j-l-1,std::move(p->dat()[j]));
 		if(p->ch){
 			q->ch=_Ptr_alloc().allocate(2*B+1);
 			for(short j=l+1;j<=2*B;j++)
@@ -160,8 +166,8 @@ public:
 		if(p==rhs.p && p==nullptr)return true;
 		return p==rhs.p && k==rhs.k;
 	}
-	value_type& operator*()const{return p->dat[k];}
-	value_type* operator->()const{return p->dat+k;}
+	value_type& operator*()const{return p->dat()[k];}
+	value_type* operator->()const{return p->dat()+k;}
 	iterator& operator++(){
 		if(!_Leaf(*p))p=_Find_first(p->ch[k+1]),k=0;
 		else{
@@ -203,8 +209,8 @@ public:
 		if(p==rhs.p && p==nullptr)return true;
 		return p==rhs.p && k==rhs.k;
 	}
-	const value_type& operator*()const{return p->dat[k];}
-	const value_type* operator->()const{return p->dat+k;}
+	const value_type& operator*()const{return p->dat()[k];}
+	const value_type* operator->()const{return p->dat()+k;}
 	const_iterator& operator++(){
 		if(!_Leaf(*p))p=_Find_first(p->ch[k+1]),k=0;
 		else{
@@ -270,6 +276,43 @@ const T& at(const Key& key)const{
 	const_iterator k=find(key);
 	if(k.p)return k->second;
 	throw std::out_of_range("Debug your code and then use operator[] instead");
+}
+
+std::pair<iterator,bool> insert(const value_type& value){
+	auto ret=_Find_or_insert(value.first);
+	if(ret.second)std::construct_at(std::addressof(ret.first->second),value.second);
+	return ret;
+}
+std::pair<iterator,bool> insert(value_type&& value){
+	auto ret=_Find_or_insert(value.first);
+	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::move(value.second));
+	return ret;
+}
+template<__rv_as<value_type> P>
+std::pair<iterator,bool> insert(P&& value){
+	auto ret=_Find_or_insert(value.first);
+	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::move(value.second));
+	return ret;
+}
+template<std::input_iterator InputIt>
+void insert(InputIt first,InputIt last){
+	while(first!=last)insert(*first++);
+}
+void insert(std::initializer_list<value_type> ilist){
+	insert(ilist.begin(),ilist.end());
+}
+
+template<class M>
+std::pair<iterator,bool> insert_or_assign(const key_type& k,M&& obj){
+	auto ret=_Find_or_insert<const Key&>(k);
+	std::construct_at(std::addressof(ret.first->second),std::move(obj));
+	return ret;
+}
+template<class M>
+std::pair<iterator,bool> insert_or_assign(key_type&& k,M&& obj){
+	auto ret=_Find_or_insert<Key&&>(std::move(k));
+	std::construct_at(std::addressof(ret.first->second),std::move(obj));
+	return ret;
 }
 
 };

@@ -90,6 +90,6 @@ size_t find_next(size_t pos)const;
 
 ## map
 
-**底层实现是B树**，故不支持`extract`等等C++17起的面向节点的内容，且`insert`时会忽略给出的位置hint。
+**底层实现是B树**，故不支持`extract`等等C++17起的面向节点的内容，且不支持使用位置hint的各种函数（因为不会有任何的加速）。
 
 `map::at`抛异常的行为与标准指定的相同。

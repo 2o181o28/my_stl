@@ -1,3 +1,4 @@
+// -*- C++ -*-
 #ifndef _MY_STD_H
 #define _MY_STD_H 1
 
