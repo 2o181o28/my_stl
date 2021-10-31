@@ -70,6 +70,8 @@ template<class T,class Alloc>
 
 与STL完全相反，在任何情况下都会使用64位的压位。貌似C++标准没有要求长度可以为0，故不允许`bitset<0>`。
 
+由于使用了`memset`，你不能创建一个`constexpr bitset<N>`。
+
 `bitset::test`抛异常的行为与标准指定的相同。
 
 新增`data()`函数，返回指向底层实现的指针。声明如下：

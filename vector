@@ -40,7 +40,8 @@ private:
 		if(!op)return;
 		auto bf=[&]{
 			for(size_type i=0;i<n;i++)
-				std::construct_at(p+i,std::move(op[i]));
+				std::construct_at(p+i,std::move(op[i])),
+				op[i].~T();
 		};
 		if _MEMCPYABLE(T){
 			if(auto s=n*sizeof(T);s>_MEMCPY_THRESHOLD)
@@ -71,18 +72,28 @@ private:
 	
 	constexpr void _move_bk(int j,int i){
 		int c=j-i;
-		auto bf=[&]{for(int I=n-1;I>=i;I--)std::construct_at(p+I+c,std::move(p[I]));};
+		auto bf=[&]{
+			for(int I=(int)n-1;I>=i;I--){
+				if(I+c<n)p[I+c]=std::move(p[I]);
+				else std::construct_at(p+I+c,std::move(p[I]));
+			}
+			for(int I=i;I<j;I++)p[I].~T();
+		};
 		if _MEMCPYABLE(T){
-			if(auto s=(n-i)*sizeof(T);s>_MEMCPY_THRESHOLD)
+			if(auto s=((int)n-i)*sizeof(T);s>_MEMCPY_THRESHOLD)
 				memmove(p+j,p+i,s);
 			else bf();
 		}else bf();
 	}
 	constexpr void _move_fr(int i,int j){
 		int c=j-i;
-		auto bf=[&]{for(int I=i;I+c<(int)n;I++)std::construct_at(p+I,std::move(p[I+c]));};
+		auto bf=[&]{
+			for(int I=i;I+c<(int)n;I++)
+				p[I]=std::move(p[I+c]);
+			for(int I=(int)n-c;I<n;I++)p[I].~T();
+		};
 		if _MEMCPYABLE(T){
-			if(auto s=(n-j)*sizeof(T);s>=_MEMCPY_THRESHOLD)
+			if(auto s=((int)n-j)*sizeof(T);s>=_MEMCPY_THRESHOLD)
 				memmove(p+i,p+j,s);
 			else bf();
 		}else bf();
@@ -110,8 +121,8 @@ public:
 	constexpr T& front(){return *p;}
 	constexpr const T& front()const{return *p;}
 	
-	constexpr T& back(){return p[n-1];}
-	constexpr const T& back()const{return p[n-1];}
+	constexpr T& back(){return p[(int)n-1];}
+	constexpr const T& back()const{return p[(int)n-1];}
 	
 	constexpr iterator begin(){return p;}
 	constexpr const_iterator begin()const{return p;}
@@ -135,6 +146,10 @@ public:
 	}
 	constexpr void shrink_to_fit(){}
 	constexpr void clear(){n=0;}
+	
+	constexpr ~vector(){
+		for(size_type i=0;i<n;i++)p[i].~T();
+	}
 	
 	constexpr vector():n(0),c(0),p(nullptr){}
 	constexpr explicit vector(const Allocator&):n(0),c(0),p(nullptr){}
@@ -277,7 +292,7 @@ public:
 	
 	constexpr iterator erase(const_iterator pos){
 		int i=pos-p;
-		if(i!=n-1)_move_fr(i,i+1);
+		if(i+1!=n)_move_fr(i,i+1);
 		n--;return (iterator)pos;
 	}
 	constexpr iterator erase(const_iterator first,const_iterator last){
@@ -340,25 +355,31 @@ public:
 		std::swap(c,other.c);
 	}
 	constexpr void assign(size_type count,const T& value){
+		this->~vector();
 		std::construct_at(this,count,value);
 	}
 	template<std::input_iterator InputIt>
 	constexpr void assign(InputIt first,InputIt last){
+		this->~vector();
 		std::construct_at(this,first,last);
 	}
 	constexpr void assign(std::initializer_list<T> ilist){
+		this->~vector();
 		std::construct_at(this,ilist);
 	}
 	
 	constexpr vector& operator=(const vector& other){
+		this->~vector();
 		std::construct_at(this,other);
 		return *this;
 	}
 	constexpr vector& operator=(vector&& other)noexcept{
+		this->~vector();
 		std::construct_at(this,std::move(other));
 		return *this;
 	}
 	constexpr vector& operator=(std::initializer_list<T> ilist){
+		this->~vector();
 		std::construct_at(this,ilist);
 		return *this;
 	}

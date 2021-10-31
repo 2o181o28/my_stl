@@ -114,22 +114,31 @@ template<class K> std::pair<iterator,bool> _Find_or_insert(K x){
 		if(i<p->n && !_Lt(x,p->dat()[i].first))return {iterator(p,i),false};
 		if(_Leaf(p))break;
 	}
-	for(short j=p->n-1;j>=i;j--)
-		std::construct_at(p->dat()+j+1,std::move(p->dat()[j]));
-	p->n++;std::construct_at(std::addressof(p->dat()[i].first),std::move(x));
+	
+	for(short j=p->n-1;j>=i;j--){
+		if(j+1<p->n)p->dat()[j+1]=std::move(p->dat()[j]);
+		else std::construct_at(p->dat()+j+1,std::move(p->dat()[j]));
+	}
+	if(i<p->n)p->dat()[i]=std::move(x);
+	else std::construct_at(std::addressof(p->dat()[i].first),std::move(x));
+	p->n++;_Sz++;
 	iterator ret(p,i);bool fix=false;
 	
 	auto split=[&]{
 		_Node* f=p->fa;short id=p->fa_id;
-		for(short j=f->n;j>id;j--)
-			f->ch[j+1]=f->ch[j],f->ch[j+1]->fa_id++,
-			std::construct_at(f->dat()+j,std::move(f->dat()[j-1]));
-		f->n++;
+		for(short j=f->n;j>id;j--){
+			f->ch[j+1]=f->ch[j],f->ch[j+1]->fa_id++;
+			if(j<f->n)f->dat()[j]=std::move(f->dat()[j-1]);
+			else std::construct_at(f->dat()+j,std::move(f->dat()[j-1]));
+		}
 		constexpr short l=B,r=B-1;
-		std::construct_at(f->dat()+id,std::move(p->dat()[l]));
+		if(id<f->n)f->dat()[id]=std::move(p->dat()[l]);
+		else std::construct_at(f->dat()+id,std::move(p->dat()[l]));
+		p->dat()[l].~value_type();f->n++;
 		_Node* q=_New_node(r,id+1,f);
 		for(short j=l+1;j<2*B;j++)
-			std::construct_at(q->dat()+j-l-1,std::move(p->dat()[j]));
+			std::construct_at(q->dat()+j-l-1,std::move(p->dat()[j])),
+			p->dat()[j].~value_type();
 		if(p->ch){
 			q->ch=_Ptr_alloc().allocate(2*B+1);
 			for(short j=l+1;j<=2*B;j++)
@@ -305,13 +314,15 @@ void insert(std::initializer_list<value_type> ilist){
 template<class M>
 std::pair<iterator,bool> insert_or_assign(const key_type& k,M&& obj){
 	auto ret=_Find_or_insert<const Key&>(k);
-	std::construct_at(std::addressof(ret.first->second),std::move(obj));
+	if(!ret.second)ret.first->second=std::move(obj);
+	else std::construct_at(std::addressof(ret.first->second),std::move(obj));
 	return ret;
 }
 template<class M>
 std::pair<iterator,bool> insert_or_assign(key_type&& k,M&& obj){
 	auto ret=_Find_or_insert<Key&&>(std::move(k));
-	std::construct_at(std::addressof(ret.first->second),std::move(obj));
+	if(!ret.second)ret.first->second=std::move(obj);
+	else std::construct_at(std::addressof(ret.first->second),std::move(obj));
 	return ret;
 }
 
