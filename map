@@ -53,7 +53,7 @@ template<class U> static bool _Eq(const Key& a,const U& b){return !_Lt(a,b) && !
 
 using _Vl=std::pair<Key,T>;
 
-static constexpr int B=6;
+static constexpr int B=2;
 struct _Node{
 	short n,fa_id;
 	char _dat[2*B*sizeof(_Vl)]; //bypass initialization
@@ -199,7 +199,7 @@ public:
 			if(k+1<p->n)++k;else{
 				while(p!=rt && p->fa_id==p->fa->n)p=p->fa;
 				if(p==rt)p=nullptr,k=0;
-				else k=p->fa_id+1,p=p->fa;
+				else k=p->fa_id,p=p->fa;
 			}
 		}
 		return *this;
@@ -243,7 +243,7 @@ public:
 			if(k+1<p->n)++k;else{
 				while(p!=rt && p->fa_id==p->fa->n)p=p->fa;
 				if(p==rt)p=nullptr,k=0;
-				else k=p->fa_id+1,p=p->fa;
+				else k=p->fa_id,p=p->fa;
 			}
 		}
 		return *this;
@@ -394,7 +394,7 @@ T& operator[](const Key& key){
 	auto r=_Find_or_insert<const Key&>(key);
 	if(r.second){
 		auto a=_T_alloc();
-		std::allocator_traits<Allocator>::construct(a,std::addressof(r.first->second));
+		std::allocator_traits<_T_alloc>::construct(a,std::addressof(r.first->second));
 	}
 	return r.first->second;
 }
@@ -406,6 +406,19 @@ T& operator[](Key&& key){
 	}
 	return r.first->second;
 }
+
+void _Debug(const _Node* p,int d=0)const{
+	printf("%*sNode %p(n=%d):\n",d*4,"",p,p->n);
+	for(int i=0;i<=p->n;i++){
+		if(p->ch){
+			printf("%*sCh #%d: %p\n",d*4+2,"",i,p->ch[i]);
+			_Debug(p->ch[i],d+1);
+		}
+		if(i<p->n)
+			printf("%*sDat #%d: %d %d\n",d*4+2,"",i,p->dat()[i].first,p->dat()[i].second);
+	}
+}
+void _Debug()const{_Debug(_Root);}
 
 };
 
