@@ -10,6 +10,7 @@
 namespace stl_with_memory_pool{
 
 template<class T,class U> concept __rv_as=std::is_constructible_v<U,T&&>;
+template<class T> concept __trans=requires{typename T::is_transparent;};
 
 template<class Key, class T, class Compare=std::less<Key>,
 	class Allocator=allocator<std::pair<const Key, T>>
@@ -43,25 +44,35 @@ public:
 	}
 };
 
-key_compare key_comp()const{return key_compare();}
-value_compare value_comp()const{return value_compare();}
+key_compare key_comp()const{return _Cmp;}
+value_compare value_comp()const{return value_compare(_Cmp);}
 
 private:
 
-template<class U> static bool _Lt(const Key& a,const U& b){return Compare{}(a,b);}
-template<class U> static bool _Eq(const Key& a,const U& b){return !_Lt(a,b) && !_Lt(b,a);}
+bool _Lt(const Key& a,const Key& b)const{return _Cmp(a,b);}
+bool _Eq(const Key& a,const Key& b)const{return !_Lt(a,b) && !_Lt(b,a);}
+template<class X,class Y,__trans=Compare>
+bool _Lt(const X& a,const Y& b)const{return a<b;}
+template<class X,class Y,__trans=Compare>
+bool _Eq(const X& a,const Y& b)const{return !(a<b) && !(b<a);}
 
 using _Vl=std::pair<Key,T>;
 
-static constexpr int B=2;
+static constexpr int B=32;
 struct _Node{
 	short n,fa_id;
-	char _dat[2*B*sizeof(_Vl)]; //bypass initialization
+	alignas(_Vl) char _dat[2*B*sizeof(_Vl)]; //bypass initialization
+	_Node **ch,*fa;
+	
 	constexpr _Vl* dat(){return (_Vl*)_dat;}
 	constexpr const _Vl* dat()const{return (const _Vl*)_dat;}
-	_Node **ch,*fa;
+	_Node(const _Node& rhs):n(rhs.n),fa_id(rhs.fa_id),ch(rhs.ch),fa(rhs.fa){
+		for(short i=0;i<rhs.n;i++)
+			std::construct_at(dat()+i,rhs.dat()[i]);
+	}
+	_Node& operator=(const _Node&)=delete;
 };
-_Node* _Root;size_type _Sz;
+_Node* _Root;size_type _Sz;Compare _Cmp;
 
 using _Node_alloc=typename std::allocator_traits<Allocator>::template rebind_alloc<_Node>;
 using _Ptr_alloc=typename std::allocator_traits<Allocator>::template rebind_alloc<_Node*>;
@@ -69,8 +80,8 @@ using _T_alloc=typename std::allocator_traits<Allocator>::template rebind_alloc<
 
 constexpr static bool _Leaf(const _Node& x){return !x.ch;}
 
-iterator _Make_it(_Node*p,int k){return iterator(_Root,p,k);}
-const_iterator _Make_cit(const _Node*p,int k)const{return const_iterator(_Root,p,k);}
+iterator _Make_it(_Node*p,short k){return iterator(_Root,p,k);}
+const_iterator _Make_cit(const _Node*p,short k)const{return const_iterator(_Root,p,k);}
 
 static const _Node* _Find_first(const _Node* p){ //can return nullptr
 	while(!_Leaf(*p))p=p->ch[0];
@@ -86,7 +97,7 @@ template<class K> iterator _Find(const K& x){
 	for(short i;;p=p->ch[i]){
 		for(i=0;i<p->n && _Lt(p->dat()[i].first,x);i++);
 		if(i<p->n && !_Lt(x,p->dat()[i].first))return _Make_it(p,i);
-		if(_Leaf(p))return _Make_it(nullptr,0);
+		if(_Leaf(*p))return _Make_it(nullptr,0);
 	}
 }
 template<class K> const_iterator _Find(const K& x)const{
@@ -94,7 +105,7 @@ template<class K> const_iterator _Find(const K& x)const{
 	for(short i;;p=p->ch[i]){
 		for(i=0;i<p->n && _Lt(p->dat()[i].first,x);i++);
 		if(i<p->n && !_Lt(x,p->dat()[i].first))return _Make_cit(p,i);
-		if(_Leaf(p))return _Make_cit(nullptr,0);
+		if(_Leaf(*p))return _Make_cit(nullptr,0);
 	}
 }
 
@@ -167,7 +178,7 @@ void _Copy_from(_Node* p,const _Node* other){
 	p->ch=_Ptr_alloc().allocate(2*B+1);
 	for(short i=0;i<=p->n;i++){
 		p->ch[i]=_Node_alloc().allocate(1);
-		*p->ch[i]=*other->ch[i];
+		std::construct_at(p->ch[i],*other->ch[i]);
 		p->ch[i]->fa=p;
 		_Copy_from(p->ch[i],other->ch[i]);
 	}
@@ -183,11 +194,14 @@ void _Del_node(_Node* p){
 
 public:
 struct iterator{
+friend struct const_iterator;
+using difference_type=map::difference_type;
+using value_type=map::value_type;
 private:
 	const _Node*rt; _Node*p; short k;
 public:
 	iterator(const _Node*rt=nullptr,_Node*p=nullptr,short k=0):rt(rt),p(p),k(k){}
-	bool operator==(const iterator&rhs)const{
+	bool operator==(const auto&rhs)const{
 		if(p==rhs.p && p==nullptr)return true;
 		return p==rhs.p && k==rhs.k;
 	}
@@ -226,17 +240,21 @@ public:
 };
 
 struct const_iterator{
+friend struct iterator;
+using difference_type=map::difference_type;
+using value_type=const map::value_type;
 private:
-	const _Node*rt,*p; int k;
+	const _Node*rt,*p; short k;
 public:
-	const_iterator(const _Node*rt=nullptr,const _Node*p=nullptr,int k=0)
+	const_iterator(const _Node*rt=nullptr,const _Node*p=nullptr,short k=0)
 		:rt(rt),p(p),k(k){}
-	bool operator==(const const_iterator&rhs)const{
+	const_iterator(const iterator&rhs):rt(rhs.rt),p(rhs.p),k(rhs.k){}
+	bool operator==(const auto&rhs)const{
 		if(p==rhs.p && p==nullptr)return true;
 		return p==rhs.p && k==rhs.k;
 	}
-	const value_type& operator*()const{return p->dat()[k];}
-	const value_type* operator->()const{return (const value_type*)p->dat()+k;}
+	value_type& operator*()const{return ((value_type*)p->dat())[k];}
+	value_type* operator->()const{return (value_type*)p->dat()+k;}
 	const_iterator& operator++(){
 		if(!_Leaf(*p))p=_Find_first(p->ch[k+1]),k=0;
 		else{
@@ -286,45 +304,45 @@ reverse_iterator rend(){return reverse_iterator{begin()};}
 const_reverse_iterator rend()const{return const_reverse_iterator{begin()};}
 const_reverse_iterator crend()const{return const_reverse_iterator{begin()};}
 
-map():_Sz(0){
+map():_Sz(0),_Cmp(Compare()){
 	_Root=_New_node(0,0,nullptr);
 }
-explicit map(const Compare&, const Allocator& =Allocator()):_Sz(0){
+explicit map(const Compare& comp, const Allocator& =Allocator()):_Sz(0),_Cmp(comp){
 	_Root=_New_node(0,0,nullptr);
 }
-explicit map(const Allocator&):_Sz(0){
+explicit map(const Allocator&):_Sz(0),_Cmp(Compare()){
 	_Root=_New_node(0,0,nullptr);
 }
 template<std::input_iterator InputIt>
-map(InputIt first,InputIt last,const Compare& =Compare(),const Allocator& =Allocator()):_Sz(0){
+map(InputIt first,InputIt last,const Compare& comp=Compare(),const Allocator& =Allocator()):_Sz(0),_Cmp(comp){
 	_Root=_New_node(0,0,nullptr);
 	while(first!=last)insert(*first++);
 }
 template<std::input_iterator InputIt>
-map(InputIt first,InputIt last,const Allocator&):_Sz(0){
+map(InputIt first,InputIt last,const Allocator&):_Sz(0),_Cmp(Compare()){
 	_Root=_New_node(0,0,nullptr);
 	while(first!=last)insert(*first++);
 }
-map(const map& other):_Sz(other._Sz){
+map(const map& other):_Sz(other._Sz),_Cmp(other._Cmp){
 	_Root=_Node_alloc().allocate(1);
-	*_Root=*other._Root;
+	std::construct_at(_Root,*other._Root);
 	_Copy_from(_Root,other._Root);
 }
-map(const map& other,const Allocator&):_Sz(other._Sz){
+map(const map& other,const Allocator&):_Sz(other._Sz),_Cmp(other._Cmp){
 	_Root=_Node_alloc().allocate(1);
-	*_Root=*other._Root;
+	std::construct_at(_Root,*other._Root);
 	_Copy_from(_Root,other._Root);
 }
-map(map&& other)noexcept:_Root(other._Root),_Sz(other._Sz){
+map(map&& other)noexcept:_Root(other._Root),_Sz(other._Sz),_Cmp(other._Cmp){
 	other._Sz=0;other._Root=_New_node(0,0,nullptr);
 }
-map(map&& other,const Allocator&)noexcept:_Root(other._Root),_Sz(other._Sz){
+map(map&& other,const Allocator&)noexcept:_Root(other._Root),_Sz(other._Sz),_Cmp(other._Cmp){
 	other._Sz=0;other._Root=_New_node(0,0,nullptr);
 }
 map(std::initializer_list<value_type> init,
-	const Compare& =Compare(),
+	const Compare& comp=Compare(),
 	const Allocator& =Allocator()){
-	std::construct_at(this,init.begin(),init.end());
+	std::construct_at(this,init.begin(),init.end(),comp);
 }
 map(std::initializer_list<value_type> init,
 	const Allocator& alloc){
@@ -335,9 +353,9 @@ map(std::initializer_list<value_type> init,
 
 iterator find(const Key& key){return _Find(key);}
 const_iterator find(const Key& key)const{return _Find(key);}
-template<class K, class U=Compare, class=typename U::is_transparent> //XXX
+template<class K, __trans=Compare>
 	iterator find(const K& x){return _Find(x);}
-template<class K, class U=Compare, class=typename U::is_transparent>
+template<class K, __trans=Compare>
 	const_iterator find(const K& x)const{return _Find(x);}
 
 T& at(const Key& key){
@@ -405,6 +423,41 @@ T& operator[](Key&& key){
 		std::allocator_traits<_T_alloc>::construct(a,std::addressof(r.first->second));
 	}
 	return r.first->second;
+}
+
+iterator lower_bound(const Key& key){
+	_Node *p=_Root;auto now=_Make_it(nullptr,0);
+	for(short i;;p=p->ch[i]){
+		for(i=0;i<p->n && _Lt(p->dat()[i].first,key);i++);
+		if(i<p->n)now=_Make_it(p,i);
+		if(_Leaf(*p))return now;
+	}
+}
+const_iterator lower_bound(const Key& key)const{
+	const _Node *p=_Root;auto now=_Make_cit(nullptr,0);
+	for(short i;;p=p->ch[i]){
+		for(i=0;i<p->n && _Lt(p->dat()[i].first,key);i++);
+		if(i<p->n)now=_Make_cit(p,i);
+		if(_Leaf(*p))return now;
+	}
+}
+template<class K,__trans=Compare>
+iterator lower_bound(const K& key){
+	_Node *p=_Root;auto now=_Make_it(nullptr,0);
+	for(short i;;p=p->ch[i]){
+		for(i=0;i<p->n && _Lt(p->dat()[i].first,key);i++);
+		if(i<p->n)now=_Make_it(p,i);
+		if(_Leaf(*p))return now;
+	}
+}
+template<class K,__trans=Compare>
+const_iterator lower_bound(const K& key)const{
+	const _Node *p=_Root;auto now=_Make_cit(nullptr,0);
+	for(short i;;p=p->ch[i]){
+		for(i=0;i<p->n && _Lt(p->dat()[i].first,key);i++);
+		if(i<p->n)now=_Make_cit(p,i);
+		if(_Leaf(*p))return now;
+	}
 }
 
 void _Debug(const _Node* p,int d=0)const{
