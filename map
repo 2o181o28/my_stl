@@ -82,6 +82,7 @@ constexpr static bool _Leaf(const _Node& x){return !x.ch;}
 
 iterator _Make_it(_Node*p,short k){return iterator(_Root,p,k);}
 const_iterator _Make_cit(const _Node*p,short k)const{return const_iterator(_Root,p,k);}
+static iterator _To_it(const const_iterator&o){return iterator(o.rt,(_Node*)o.p,o.k);}
 
 static const _Node* _Find_first(const _Node* p){ //can return nullptr
 	while(!_Leaf(*p))p=p->ch[0];
@@ -92,14 +93,6 @@ static const _Node* _Find_last(const _Node* p){ //can return nullptr
 	return p->n?p:nullptr;
 }
 
-template<class K> iterator _Find(const K& x){
-	_Node* p=_Root;
-	for(short i;;p=p->ch[i]){
-		for(i=0;i<p->n && _Lt(p->dat()[i].first,x);i++);
-		if(i<p->n && !_Lt(x,p->dat()[i].first))return _Make_it(p,i);
-		if(_Leaf(*p))return _Make_it(nullptr,0);
-	}
-}
 template<class K> const_iterator _Find(const K& x)const{
 	const _Node* p=_Root;
 	for(short i;;p=p->ch[i]){
@@ -190,6 +183,37 @@ void _Del_node(_Node* p){
 	if(!_Leaf(*p))
 		for(short i=0;i<=p->n;i++)
 			_Del_node(p->ch[i]);
+}
+
+template<class K> const_iterator _L_bound(const K& key)const{
+	const _Node *p=_Root;auto now=_Make_cit(nullptr,0);
+	for(short i;;p=p->ch[i]){
+		for(i=0;i<p->n && _Lt(p->dat()[i].first,key);i++);
+		if(i<p->n)now=_Make_cit(p,i);
+		if(_Leaf(*p))return now;
+	}
+}
+template<class K> const_iterator _U_bound(const K& key)const{
+	const _Node *p=_Root;auto now=_Make_cit(nullptr,0);
+	for(short i;;p=p->ch[i]){
+		for(i=0;i<p->n && !_Lt(key,p->dat()[i].first);i++);
+		if(i<p->n)now=_Make_cit(p,i);
+		if(_Leaf(*p))return now;
+	}
+}
+template<class K>
+std::pair<const_iterator,const_iterator> _Eq_range(const K& key)const{
+	const _Node *p=_Root;auto now=_Make_cit(nullptr,0);
+	for(short i;;p=p->ch[i]){
+		for(i=0;i<p->n && _Lt(p->dat()[i].first,key);i++);
+		if(i<p->n){
+			now=_Make_cit(p,i);
+			if(!_Lt(key,p->dat()[i].first)){
+				auto b=now++;return {b,now};
+			}
+		}
+		if(_Leaf(*p))return {now,now};
+	}
 }
 
 public:
@@ -349,12 +373,28 @@ map(std::initializer_list<value_type> init,
 	std::construct_at(this,init.begin(),init.end(),alloc);
 }
 
-~map(){_Del_node(_Root);}
+~map(){if(_Root)_Del_node(_Root);}
 
-iterator find(const Key& key){return _Find(key);}
+map& operator=(const map& other){
+	this->~map();
+	std::construct_at(this,other);
+	return *this;
+}
+map& operator=(map&& other)noexcept{
+	this->~map();
+	std::construct_at(this,std::move(other));
+	return *this;
+}
+map& operator=(std::initializer_list<value_type> ilist){
+	this->~map();
+	std::construct_at(this,ilist);
+	return *this;
+}
+
+iterator find(const Key& key){return _To_it(_Find(key));}
 const_iterator find(const Key& key)const{return _Find(key);}
 template<class K, __trans=Compare>
-	iterator find(const K& x){return _Find(x);}
+	iterator find(const K& x){return _To_it(_Find(x));}
 template<class K, __trans=Compare>
 	const_iterator find(const K& x)const{return _Find(x);}
 
@@ -425,40 +465,44 @@ T& operator[](Key&& key){
 	return r.first->second;
 }
 
-iterator lower_bound(const Key& key){
-	_Node *p=_Root;auto now=_Make_it(nullptr,0);
-	for(short i;;p=p->ch[i]){
-		for(i=0;i<p->n && _Lt(p->dat()[i].first,key);i++);
-		if(i<p->n)now=_Make_it(p,i);
-		if(_Leaf(*p))return now;
-	}
+iterator lower_bound(const Key& key){return _To_it(_L_bound(key));}
+const_iterator lower_bound(const Key& key)const{return _L_bound(key);}
+template<class K,__trans=Compare>
+iterator lower_bound(const K& key){return _To_it(_L_bound(key));}
+template<class K,__trans=Compare>
+const_iterator lower_bound(const K& key)const{return _L_bound(key);}
+
+iterator upper_bound(const Key& key){return _To_it(_U_bound(key));}
+const_iterator upper_bound(const Key& key)const{return _U_bound(key);}
+template<class K,__trans=Compare>
+iterator upper_bound(const K& key){return _To_it(_U_bound(key));}
+template<class K,__trans=Compare>
+const_iterator upper_bound(const K& key)const{return _U_bound(key);}
+
+std::pair<iterator,iterator> equal_range(const Key& key){
+	auto r=_Eq_range(key);
+	return {_To_it(r.first),_To_it(r.second)};
 }
-const_iterator lower_bound(const Key& key)const{
-	const _Node *p=_Root;auto now=_Make_cit(nullptr,0);
-	for(short i;;p=p->ch[i]){
-		for(i=0;i<p->n && _Lt(p->dat()[i].first,key);i++);
-		if(i<p->n)now=_Make_cit(p,i);
-		if(_Leaf(*p))return now;
-	}
+std::pair<const_iterator,const_iterator> equal_range(const Key& key)const{
+	return _Eq_range(key);
 }
 template<class K,__trans=Compare>
-iterator lower_bound(const K& key){
-	_Node *p=_Root;auto now=_Make_it(nullptr,0);
-	for(short i;;p=p->ch[i]){
-		for(i=0;i<p->n && _Lt(p->dat()[i].first,key);i++);
-		if(i<p->n)now=_Make_it(p,i);
-		if(_Leaf(*p))return now;
-	}
+std::pair<iterator,iterator> equal_range(const K& key){
+	auto r=_Eq_range(key);
+	return {_To_it(r.first),_To_it(r.second)};
 }
 template<class K,__trans=Compare>
-const_iterator lower_bound(const K& key)const{
-	const _Node *p=_Root;auto now=_Make_cit(nullptr,0);
-	for(short i;;p=p->ch[i]){
-		for(i=0;i<p->n && _Lt(p->dat()[i].first,key);i++);
-		if(i<p->n)now=_Make_cit(p,i);
-		if(_Leaf(*p))return now;
-	}
+std::pair<const_iterator,const_iterator> equal_range(const K& key)const{
+	return _Eq_range(key);
 }
+
+bool contains(const Key& key)const{return _Find(key)!=cend();}
+template<class K,__trans=Compare>
+bool contains(const K& x)const{return _Find(x)!=cend();}
+
+size_type count(const Key& key)const{return _Find(key)!=cend();}
+template<class K,__trans=Compare>
+bool count(const K& x)const{return _Find(x)!=cend();}
 
 void _Debug(const _Node* p,int d=0)const{
 	printf("%*sNode %p(n=%d):\n",d*4,"",p,p->n);
