@@ -2,12 +2,6 @@
 #ifndef _MY_BITSET_H
 #define _MY_BITSET_H 1
 
-#include<bit>
-#include<cstring>
-#include<string>
-#include<stdexcept>
-#include<ios>
-
 #include"std.h"
 
 namespace stl_with_memory_pool{

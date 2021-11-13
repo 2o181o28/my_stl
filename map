@@ -2,9 +2,6 @@
 #ifndef _MY_MAP_H
 #define _MY_MAP_H 1
 
-#include<memory>
-#include<utility>
-#include<functional>
 #include"std.h"
 
 namespace stl_with_memory_pool{

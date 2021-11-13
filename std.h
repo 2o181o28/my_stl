@@ -2,11 +2,7 @@
 #ifndef _MY_STD_H
 #define _MY_STD_H 1
 
-#include<cstdio>
-#include<cstdlib>
-#include<cstdint>
-#include<utility>
-#include<type_traits>
+#include<bits/stdc++.h>
 
 #define _MEMCPYABLE(T) constexpr(std::is_trivially_copyable_v<T>)
 #define _MEMCPY_THRESHOLD 8
