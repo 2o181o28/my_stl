@@ -350,9 +350,9 @@ public:
 		for(auto i=on;i<n;i++)_set(i,value);
 	}
 	constexpr void swap(vector& other)noexcept{
-		std::swap(n,other.n);
-		std::swap(p,other.p);
-		std::swap(c,other.c);
+		stl_with_memory_pool::swap(n,other.n);
+		stl_with_memory_pool::swap(p,other.p);
+		stl_with_memory_pool::swap(c,other.c);
 	}
 	constexpr void assign(size_type count,const T& value){
 		this->~vector();
@@ -474,9 +474,8 @@ constexpr bool operator==(const stl_with_memory_pool::vector<T,Alloc>&a,const st
 
 template<class T,class Alloc>
 constexpr auto operator<=>(const stl_with_memory_pool::vector<T,Alloc>&a,const stl_with_memory_pool::vector<T,Alloc>&b){
-	for(uint32_t i=0;i<a.size() && i<b.size();i++){
-		if(a[i]!=b[i])return a[i]<=>b[i];
-	}
+	for(uint32_t i=0;i<a.size() && i<b.size();i++)
+		if(auto k=a[i]<=>b[i];k!=std::weak_ordering::equivalent)return k;
 	return a.size()<=>b.size();
 }
 

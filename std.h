@@ -62,7 +62,7 @@ constexpr void swap(T (&a)[N],T (&b)[N]){
 	auto bf=[&]{for(std::size_t i=0;i<N;i++)swap(a[i],b[i]);};
 	if _MEMCPYABLE(T){
 		if(constexpr auto s=N*sizeof(T);s>_MEMCPY_THRESHOLD){
-			char buf[s];T*c=(T*)buf;
+			alignas(T) char buf[s];T*c=(T*)buf;
 			memcpy(c,a,s);memcpy(a,b,s);memcpy(b,c,s);
 		}else bf();
 	}else bf();

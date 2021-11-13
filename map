@@ -63,7 +63,7 @@ struct _Node{
 	short n,fa_id;
 	alignas(_Vl) char _dat[2*B*sizeof(_Vl)]; //bypass initialization
 	_Node **ch,*fa;
-	
+
 	constexpr _Vl* dat(){return (_Vl*)_dat;}
 	constexpr const _Vl* dat()const{return (const _Vl*)_dat;}
 	_Node(const _Node& rhs):n(rhs.n),fa_id(rhs.fa_id),ch(rhs.ch),fa(rhs.fa){
@@ -115,7 +115,7 @@ template<class K> std::pair<iterator,bool> _Find_or_insert(K x){
 		if(i<p->n && !_Lt(x,p->dat()[i].first))return {_Make_it(p,i),false};
 		if(_Leaf(*p))break;
 	}
-	
+
 	for(short j=p->n-1;j>=i;j--){
 		if(j+1<p->n)p->dat()[j+1]=std::move(p->dat()[j]);
 		else std::construct_at(p->dat()+j+1,std::move(p->dat()[j]));
@@ -124,7 +124,7 @@ template<class K> std::pair<iterator,bool> _Find_or_insert(K x){
 	else std::construct_at(std::addressof(p->dat()[i].first),std::move(x));
 	p->n++;_Sz++;
 	iterator ret(_Root,p,i);bool fix=false;
-	
+
 	auto split=[&]{
 		_Node* f=p->fa;short id=p->fa_id;
 		for(short j=f->n;j>id;j--){
@@ -155,7 +155,7 @@ template<class K> std::pair<iterator,bool> _Find_or_insert(K x){
 		}
 		p->n=l;f->ch[id+1]=q;
 	};
-	
+
 	for(;p!=_Root && p->n==2*B;p=p->fa)split();
 	if(p==_Root && p->n==2*B){
 		_Root=_New_node(0,0,nullptr);
@@ -315,6 +315,8 @@ size_type size()const{return _Sz;}
 size_type max_size()const{return 1e9;}
 [[nodiscard]] bool empty()const{return !_Sz;}
 
+allocator_type get_allocator()const{return Allocator{};}
+
 iterator begin(){return _Make_it((_Node*)_Find_first(_Root),0);}
 const_iterator begin()const{return _Make_cit(_Find_first(_Root),0);}
 const_iterator cbegin()const{return _Make_cit(_Find_first(_Root),0);}
@@ -391,6 +393,12 @@ map& operator=(std::initializer_list<value_type> ilist){
 	return *this;
 }
 
+void swap(map& other)noexcept{
+	stl_with_memory_pool::swap(_Sz,other._Sz);
+	stl_with_memory_pool::swap(_Root,other._Root);
+	stl_with_memory_pool::swap(_Cmp,other._Cmp);
+}
+
 iterator find(const Key& key){return _To_it(_Find(key));}
 const_iterator find(const Key& key)const{return _Find(key);}
 template<class K, __trans=Compare>
@@ -448,6 +456,27 @@ std::pair<iterator,bool> insert_or_assign(key_type&& k,M&& obj){
 	return ret;
 }
 
+template<class... Args>
+std::pair<iterator,bool> emplace(Args&&... args){
+	value_type value(std::forward<Args>(args)...);
+	auto ret=_Find_or_insert<const Key&&>(std::move(value.first));
+	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::move(value.second));
+	return ret;
+}
+
+template<class... Args>
+std::pair<iterator,bool> try_emplace(const Key& k,Args&&... args){
+	auto ret=_Find_or_insert<const Key&>(k);
+	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::forward<Args>(args)...);
+	return ret;
+}
+template<class... Args>
+std::pair<iterator,bool> try_emplace(Key&& k,Args&&... args){
+	auto ret=_Find_or_insert<Key&&>(std::move(k));
+	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::forward<Args>(args)...);
+	return ret;
+}
+
 T& operator[](const Key& key){
 	auto r=_Find_or_insert<const Key&>(key);
 	if(r.second){
@@ -463,6 +492,11 @@ T& operator[](Key&& key){
 		std::allocator_traits<_T_alloc>::construct(a,std::addressof(r.first->second));
 	}
 	return r.first->second;
+}
+
+void clear(){
+	this->~map();
+	_Sz=0;_Root=_New_node(0,0,nullptr);
 }
 
 iterator lower_bound(const Key& key){return _To_it(_L_bound(key));}
@@ -519,6 +553,54 @@ void _Debug()const{_Debug(_Root);}
 
 };
 
+template<class Key,class T,class Compare,class Alloc>
+void swap(map<Key,T,Compare,Alloc>& lhs,
+	map<Key,T,Compare,Alloc>& rhs){
+	lhs.swap(rhs);
+}
+
+template<class Key,class T,class Compare,class Alloc>
+bool operator==(const map<Key,T,Compare,Alloc>& lhs,
+	const map<Key,T,Compare,Alloc>& rhs){
+	if(lhs.size()!=rhs.size())return 0;
+	for(auto it=lhs.cbegin(),it1=rhs.cbegin();
+		it!=lhs.cend();++it,++it1){
+		if(*it!=*it1)return 0;
+	}
+	return 1;
+}
+
+template<class Key,class T,class Compare,class Alloc>
+auto operator<=>(const map<Key,T,Compare,Alloc>& lhs,
+	const map<Key,T,Compare,Alloc>& rhs){
+	for(auto it=lhs.cbegin(),it1=rhs.cbegin();
+		it!=lhs.cend() && it1!=rhs.cend();
+		++it,++it1)
+		if(auto k=*it<=>*it1;k!=std::weak_ordering::equivalent)return k;
+	return lhs.size()<=>rhs.size();
+}
+
+}
+
+namespace std{
+	template<class Key,class T,class Compare,class Alloc>
+	void swap(stl_with_memory_pool::map<Key,T,Compare,Alloc>& lhs,
+		stl_with_memory_pool::map<Key,T,Compare,Alloc>& rhs){
+		lhs.swap(rhs);
+	}
+
+/*	template<class Key,class T,class Compare,class Alloc,class Pred>
+	auto erase_if(stl_with_memory_pool::map<Key,T,Compare,Alloc>& c,Pred pred){
+		auto old_size = c.size();
+		for (auto i = c.begin(), last = c.end(); i != last; ) {
+			if (pred(*i)) {
+				i = c.erase(i);
+			} else {
+				++i;
+			}
+		}
+		return old_size - c.size();
+	}*/
 }
 
 #endif
