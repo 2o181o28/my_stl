@@ -95,3 +95,22 @@ size_t find_next(size_t pos)const;
 **底层实现是B树**，故不支持`extract`等等C++17起的面向节点的内容，且不支持使用位置hint的各种函数（因为不会有任何的加速）。
 
 `map::at`抛异常的行为与标准指定的相同。
+
+不保证`insert`、`erase`等操作后，其余迭代器和引用依然合法。
+
+`erase`操作改为返回被删除的键-值对（向Rust学习）。新增`erase_and_get_next`函数，达成原有`erase`的功能，但**没有均摊O(1)的复杂度保证**。具体声明如下:
+
+```cpp
+template<class T> concept __trans=requires{typename T::is_transparent;};
+
+std::pair<key_type,mapped_type> erase(iterator pos);
+std::pair<key_type,mapped_type> erase(const_iterator pos);
+std::optional<std::pair<key_type,mapped_type>> erase(const key_type& key);
+template<class K,__trans=key_compare> requires(!std::convertible_to<K,iterator> &&
+	!std::convertible_to<K,const_iterator>)
+std::optional<std::pair<key_type,mapped_type>> erase(K&& x);
+
+iterator erase_and_get_next(iterator pos);
+iterator erase_and_get_next(const_iterator pos);
+iterator erase_and_get_next(const_iterator first, const_iterator last);
+```

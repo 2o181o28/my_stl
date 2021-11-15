@@ -163,6 +163,64 @@ template<class K> std::pair<iterator,bool> _Find_or_insert(K x){
 	return {ret,true};
 }
 
+_Vl _Erase(iterator pos){
+	auto ret=std::move(*pos);
+	_Node* p=pos.p;short i=pos.k;
+	if(!_Leaf(*p)){
+		_Node* q=(_Node*)_Find_first(p->ch[i+1]);
+		p->dat()[i]=std::move(q->dat()[0]);
+		p=q,i=0;
+	}
+	for(short j=i;j+1<p->n;j++)p->dat()[j]=std::move(p->dat()[j+1]);
+	p->dat()[--p->n].~_Vl();
+	for(_Node *f=p->fa;p!=_Root && p->n<B-1;p=f,f=p->fa){
+		int id=p->fa_id;
+		if(id<f->n && f->ch[id+1]->n>=B){
+			_Node *q=f->ch[id+1];
+			std::construct_at(p->dat()+p->n++,std::move(f->dat()[id]));
+			if(!_Leaf(*p))(p->ch[p->n]=q->ch[0])->fa=p,p->ch[p->n]->fa_id=p->n;
+			f->dat()[id]=std::move(q->dat()[0]);
+			for(short i=0;i+1<q->n;i++)q->dat()[i]=std::move(q->dat()[i+1]);
+			q->dat()[--q->n].~_Vl();
+			if(!_Leaf(*q))
+				for(short i=0;i<=q->n;i++)
+					(q->ch[i]=q->ch[i+1])->fa_id--;
+			break;
+		}
+		if(id && f->ch[id-1]->n>=B){
+			_Node *q=f->ch[id-1];
+			std::construct_at(p->dat()+p->n,std::move(p->dat()[p->n-1]));
+			for(short i=p->n-1;i;i--)p->dat()[i]=std::move(p->dat()[i-1]);
+			p->dat()[0]=std::move(f->dat()[id-1]);
+			if(!_Leaf(*p)){
+				for(short i=p->n;~i;i--)(p->ch[i+1]=p->ch[i])->fa_id++;
+				(p->ch[0]=q->ch[q->n])->fa=p,p->ch[0]->fa_id=0;
+			}
+			p->n++;
+			f->dat()[id-1]=std::move(q->dat()[q->n-1]);
+			q->dat()[--q->n].~_Vl();
+			break;
+		}
+		if(id==f->n)p=f->ch[--id];
+		_Node *q=f->ch[id+1];
+		std::construct_at(p->dat()+p->n,std::move(f->dat()[id]));
+		for(short i=0;i<q->n;i++)
+			std::construct_at(p->dat()+p->n+1+i,std::move(q->dat()[i])),
+			q->dat()[i].~_Vl();
+		if(!_Leaf(*q))
+			for(short i=0;i<=q->n;i++)
+				(p->ch[i+p->n+1]=q->ch[i])->fa=p,
+				p->ch[i+p->n+1]->fa_id=i+p->n+1;
+		p->n+=q->n+1;
+		for(short i=id;i+1<f->n;i++)
+			f->dat()[i]=std::move(f->dat()[i+1]);
+		f->dat()[--f->n].~_Vl();
+		for(short i=id+1;i<=f->n;i++)(f->ch[i]=f->ch[i+1])->fa_id--;
+	}
+	if(p==_Root && !p->n && !_Leaf(*p))_Root=p->ch[0];
+	_Sz--;return ret;
+}
+
 void _Copy_from(_Node* p,const _Node* other){
 	if(_Leaf(*other))return;
 	p->ch=_Ptr_alloc().allocate(2*B+1);
@@ -216,6 +274,7 @@ std::pair<const_iterator,const_iterator> _Eq_range(const K& key)const{
 public:
 struct iterator{
 friend struct const_iterator;
+friend struct map;
 using difference_type=map::difference_type;
 using value_type=map::value_type;
 private:
@@ -262,6 +321,7 @@ public:
 
 struct const_iterator{
 friend struct iterator;
+friend struct map;
 using difference_type=map::difference_type;
 using value_type=const map::value_type;
 private:
@@ -491,6 +551,38 @@ T& operator[](Key&& key){
 	return r.first->second;
 }
 
+_Vl erase(const_iterator pos){return _Erase(_To_it(pos));}
+_Vl erase(iterator pos){return _Erase(pos);}
+std::optional<_Vl> erase(const Key& key){
+	auto it=_To_it(_Find(key));
+	if(it==end())return std::nullopt;
+	return _Erase(it);
+}
+template<class K,__trans=Compare> requires(!std::convertible_to<K,iterator> && 	
+	!std::convertible_to<K,const_iterator>)
+std::optional<_Vl> erase(K&& x){
+	auto it=_To_it(_Find(x));
+	if(it==end())return std::nullopt;
+	return _Erase(it);
+}
+
+iterator erase_and_get_next(iterator pos){
+	return lower_bound(_Erase(pos).first);
+}
+iterator erase_and_get_next(const_iterator pos){
+	return lower_bound(_Erase(_To_it(pos)).first);
+}
+iterator erase(const_iterator first,const_iterator last){
+	auto it=first;
+	if(last==cend())
+		while(it!=last)it=erase_and_get_next(it);
+	else{
+		Key ed=last->first;
+		while(_Lt(*it,ed))it=erase_and_get_next(it);
+	}
+	return _To_it(it);
+}
+
 void clear(){
 	this->~map();
 	_Sz=0;_Root=_New_node(0,0,nullptr);
@@ -586,18 +678,18 @@ namespace std{
 		lhs.swap(rhs);
 	}
 
-/*	template<class Key,class T,class Compare,class Alloc,class Pred>
+	template<class Key,class T,class Compare,class Alloc,class Pred>
 	auto erase_if(stl_with_memory_pool::map<Key,T,Compare,Alloc>& c,Pred pred){
 		auto old_size = c.size();
 		for (auto i = c.begin(), last = c.end(); i != last; ) {
 			if (pred(*i)) {
-				i = c.erase(i);
+				i = c.erase_and_get_next(i);
 			} else {
 				++i;
 			}
 		}
 		return old_size - c.size();
-	}*/
+	}
 }
 
 #endif
