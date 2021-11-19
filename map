@@ -424,13 +424,9 @@ map(map&& other,const Allocator&)noexcept:_Root(other._Root),_Sz(other._Sz),_Cmp
 }
 map(std::initializer_list<value_type> init,
 	const Compare& comp=Compare(),
-	const Allocator& =Allocator()){
-	std::construct_at(this,init.begin(),init.end(),comp);
-}
+	const Allocator& =Allocator()):map(init.begin(),init.end(),comp){}
 map(std::initializer_list<value_type> init,
-	const Allocator& alloc){
-	std::construct_at(this,init.begin(),init.end(),alloc);
-}
+	const Allocator& alloc):map(init.begin(),init.end(),alloc){}
 
 ~map(){if(_Root)_Del_node(_Root);}
 
@@ -627,7 +623,7 @@ size_type count(const Key& key)const{return _Find(key)!=cend();}
 template<class K,__trans=Compare>
 bool count(const K& x)const{return _Find(x)!=cend();}
 
-void _Debug(const _Node* p,int d=0)const{
+/*void _Debug(const _Node* p,int d=0)const{
 	printf("%*sNode %p(n=%d):\n",d*4,"",p,p->n);
 	for(int i=0;i<=p->n;i++){
 		if(p->ch){
@@ -638,7 +634,7 @@ void _Debug(const _Node* p,int d=0)const{
 			printf("%*sDat #%d: %d %d\n",d*4+2,"",i,p->dat()[i].first,p->dat()[i].second);
 	}
 }
-void _Debug()const{_Debug(_Root);}
+void _Debug()const{_Debug(_Root);}*/
 
 };
 

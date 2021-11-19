@@ -1,0 +1,49 @@
+// -*- C++ -*-
+#ifndef _MY_QUEUE_H
+#define _MY_QUEUE_H 1
+
+#include"vector"
+
+namespace stl_with_memory_pool{
+
+template<class T,class Container=vector<T>,class Compare=std::less<typename Container::value_type>>
+struct priority_queue{
+	using container_type=Container;
+	using value_compare=Compare;
+	using value_type=typename Container::value_type;
+	using size_type=Container::size_type;
+	using reference=Container::reference;
+	using const_reference=Container::const_reference;
+	
+protected:
+	Container c;Compare comp;
+	
+public:
+	priority_queue() : priority_queue(Compare(), Container()) { }
+	explicit priority_queue( const Compare& compare ): priority_queue(compare, Container()) { }
+	priority_queue( const Compare& compare, const Container& cont ):comp(compare),c(cont){}
+	priority_queue( const Compare& compare, Container&& cont ):comp(compare),c(std::move(cont)){}
+	priority_queue( const priority_queue& other ):c(other.c),comp(other.comp){}
+	priority_queue( priority_queue&& other ):c(std::move(other.c)),comp(std::move(other.comp)){}
+	template<std::input_iterator InputIt>
+	priority_queue(InputIt first,InputIt last,const Compare& compare=Compare())
+		:c(first,last),comp(compare){_Make_heap(c.begin(),c.end());}
+	template<std::input_iterator InputIt>
+	priority_queue(InputIt first,InputIt last,const Compare& compare=Compare(),
+		const Container& cont)
+		:c(cont),comp(compare){c.insert(c.end(),first,last);_Make_heap(c.begin(),c.end());}
+	template<std::input_iterator InputIt>
+	priority_queue(InputIt first,InputIt last,const Compare& compare=Compare(),
+		Container&& cont)
+		:c(std::move(cont)),comp(compare){c.insert(c.end(),first,last);_Make_heap(c.begin(),c.end());}
+	
+	const_reference top(){return c[0];}
+	[[nodiscard]] bool empty()const{return c.empty();}
+	size_type size(){return c.size();}
+	
+	//TODO
+};
+
+}
+
+#endif

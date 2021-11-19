@@ -146,7 +146,7 @@ public:
 	}
 	
 	constexpr vector():n(0),c(0),p(nullptr){}
-	constexpr explicit vector(const Allocator&):n(0),c(0),p(nullptr){}
+	constexpr explicit vector(const Allocator&):vector(){}
 	constexpr vector(size_type count,const T&value,const Allocator& alloc=Allocator()):n(count),c(count){
 		p=alloc.allocate(c);
 		for(size_type i=0;i<n;i++)_set(i,value);
@@ -158,7 +158,7 @@ public:
 	constexpr vector(ForwardIt first,ForwardIt last,const Allocator& alloc=Allocator()){
 		n=c=std::distance(first,last);
 		p=alloc.allocate(c);
-		if (std::contiguous_iterator<ForwardIt>){
+		if constexpr(std::contiguous_iterator<ForwardIt>){
 			auto bf=[&]{
 				for(size_type i=0;i<n;i++)_set(i,*first++);
 			};
@@ -172,8 +172,7 @@ public:
 		}
 	}
 	template<std::input_iterator InputIt>
-	constexpr vector(InputIt first,InputIt last,const Allocator& alloc=Allocator()){
-		n=c=0;p=nullptr;
+	constexpr vector(InputIt first,InputIt last,const Allocator& alloc=Allocator()):vector(){
 		while(first!=last)push_back(*first++);
 	}
 	constexpr vector(const vector& other){
@@ -186,22 +185,11 @@ public:
 			else bf();
 		}else bf();
 	}
-	constexpr vector(const vector& other,const Allocator& alloc){
-		n=other.n;c=other.c;
-		p=alloc.allocate(c);
-		auto bf=[&]{for(size_type i=0;i<n;i++)std::construct_at(p+i,other.p[i]);};
-		if _MEMCPYABLE(T){
-			if(auto s=n*sizeof(T);s>_MEMCPY_THRESHOLD)
-				memcpy(p,other.p,s);
-			else bf();
-		}else bf();
-	}
+	constexpr vector(const vector& other,const Allocator& alloc):vector(other){}
 	constexpr vector(vector&& other)noexcept:n(other.n),c(other.c),p(other.p){
 		other.n=other.c=0;other.p=nullptr;
 	}
-	constexpr vector(vector&& other,const Allocator&)noexcept:n(other.n),c(other.c),p(other.p){
-		other.n=other.c=0;other.p=nullptr;
-	}
+	constexpr vector(vector&& other,const Allocator&)noexcept:vector(std::move(other)){}
 	constexpr vector(std::initializer_list<T> init,const Allocator& alloc=Allocator()){
 		n=c=init.size();
 		p=alloc.allocate(c);
