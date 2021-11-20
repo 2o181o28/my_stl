@@ -115,6 +115,10 @@ iterator erase_and_get_next(const_iterator pos);
 iterator erase_and_get_next(const_iterator first, const_iterator last);
 ```
 
+## set,multiset
+
+是`map`的封装，故各项特色和`map`相同。`multiset::count`是O(log(n))的。
+
 ## priority_queue
 
 不支持各种带`allocator`的构造函数，以及`std::uses_allocator<stl_with_momory_pool::priority_queue>`。

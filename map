@@ -393,17 +393,13 @@ map():_Sz(0),_Cmp(Compare()){
 explicit map(const Compare& comp, const Allocator& =Allocator()):_Sz(0),_Cmp(comp){
 	_Root=_New_node(0,0,nullptr);
 }
-explicit map(const Allocator&):_Sz(0),_Cmp(Compare()){
-	_Root=_New_node(0,0,nullptr);
-}
+explicit map(const Allocator&):map(){}
 template<std::input_iterator InputIt>
-map(InputIt first,InputIt last,const Compare& comp=Compare(),const Allocator& =Allocator()):_Sz(0),_Cmp(comp){
-	_Root=_New_node(0,0,nullptr);
+map(InputIt first,InputIt last,const Compare& comp=Compare(),const Allocator& =Allocator()):map(comp){
 	while(first!=last)insert(*first++);
 }
 template<std::input_iterator InputIt>
-map(InputIt first,InputIt last,const Allocator&):_Sz(0),_Cmp(Compare()){
-	_Root=_New_node(0,0,nullptr);
+map(InputIt first,InputIt last,const Allocator&):map(){
 	while(first!=last)insert(*first++);
 }
 map(const map& other):_Sz(other._Sz),_Cmp(other._Cmp){
@@ -411,17 +407,11 @@ map(const map& other):_Sz(other._Sz),_Cmp(other._Cmp){
 	std::construct_at(_Root,*other._Root);
 	_Copy_from(_Root,other._Root);
 }
-map(const map& other,const Allocator&):_Sz(other._Sz),_Cmp(other._Cmp){
-	_Root=_Node_alloc().allocate(1);
-	std::construct_at(_Root,*other._Root);
-	_Copy_from(_Root,other._Root);
-}
+map(const map& other,const Allocator&):map(other){}
 map(map&& other)noexcept:_Root(other._Root),_Sz(other._Sz),_Cmp(other._Cmp){
 	other._Sz=0;other._Root=_New_node(0,0,nullptr);
 }
-map(map&& other,const Allocator&)noexcept:_Root(other._Root),_Sz(other._Sz),_Cmp(other._Cmp){
-	other._Sz=0;other._Root=_New_node(0,0,nullptr);
-}
+map(map&& other,const Allocator&)noexcept:map(std::move(other)){}
 map(std::initializer_list<value_type> init,
 	const Compare& comp=Compare(),
 	const Allocator& =Allocator()):map(init.begin(),init.end(),comp){}

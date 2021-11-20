@@ -1,0 +1,239 @@
+// -*- C++ -*-
+#ifndef _MY_SET_H
+#define _MY_SET_H 1
+
+#include"map"
+
+namespace stl_with_memory_pool{
+
+template<class Key, class Compare=std::less<Key>,
+	class Allocator=allocator<Key>
+> struct set{
+	template< class K, class C, class A >
+	friend bool operator==( const set<K,C,A>&,
+		const set<K,C,A>&);
+	template< class K, class C, class A >
+	friend auto operator<=>( const set<K,C,A>&,
+		const set<K,C,A>&);
+
+private:
+	struct _Null_type{
+		auto operator<=>(const _Null_type&)const=default;
+	};
+	using _Mp=map<Key,_Null_type,Compare,Allocator>;
+	_Mp a;
+	
+public:
+	using key_type=Key;
+	using value_type=Key;
+	using size_type=typename _Mp::size_type;
+	using difference_type=typename _Mp::difference_type;
+	using key_compare=Compare;
+	using value_compare=Compare;
+	using allocator_type=Allocator;
+	using reference=value_type&;
+	using const_reference=const value_type&;
+	using pointer=typename std::allocator_traits<Allocator>::pointer;
+	using const_pointer=typename std::allocator_traits<Allocator>::const_pointer;
+	struct iterator;
+	using const_iterator=iterator;
+	using reverse_iterator=std::reverse_iterator<iterator>;
+	using const_reverse_iterator=std::reverse_iterator<const_iterator>;
+
+struct iterator{
+	friend struct set;
+private:
+	using _Tp=typename _Mp::const_iterator;
+	_Tp i;
+public:
+	using difference_type=typename _Tp::difference_type;
+	using value_type=const set::value_type;
+	iterator():i(){}
+	iterator(std::convertible_to<_Tp> auto p):i(_Tp(p)){}
+	bool operator==(const iterator&rhs)const{return i==rhs.i;}
+	value_type& operator*()const{return i->first;}
+	value_type* operator->()const{return std::addressof(i->first);}
+	iterator& operator++(){++i;return *this;}
+	iterator operator++(int){auto res=*this;++*this;return res;}
+	iterator& operator--(){--i;return *this;}
+	iterator operator--(int){auto res=*this;--*this;return res;}
+};
+
+set(){}
+explicit set( const Compare& comp,
+              const Allocator& alloc = Allocator() ):a(comp,alloc){}
+explicit set( const Allocator& alloc ):a(alloc){}
+template< std::input_iterator InputIt >
+set( InputIt first, InputIt last,
+	const Compare& comp = Compare(),
+	const Allocator& alloc = Allocator() ):a(comp,alloc){
+	while(first!=last)insert(*first++);
+}
+template< std::input_iterator InputIt >
+set( InputIt first, InputIt last, const Allocator& alloc)
+	: set(first, last, Compare(), alloc) {}
+set( const set& other, const Allocator& ):a(other.a){}
+set( set&& other, const Allocator& )noexcept:a(std::move(other.a)){}
+set( std::initializer_list<value_type> init,
+	const Compare& comp = Compare(),
+	const Allocator& alloc = Allocator() )
+	:set(init.begin(),init.end(),comp,alloc){}
+set( std::initializer_list<value_type> init, const Allocator& alloc )
+	: set(init, Compare(), alloc) {}
+	
+set& operator=(std::initializer_list<value_type> ilist){
+	a.clear();
+	for(auto&x:ilist)a.emplace(x,_Null_type{});
+}
+
+allocator_type get_allocator() const{return a.get_allocator();}
+
+iterator begin(){return a.cbegin();}
+const_iterator begin()const{return a.cbegin();}
+const_iterator cbegin()const{return a.cbegin();}
+iterator end(){return a.cend();}
+const_iterator end()const{return a.cend();}
+const_iterator cend()const{return a.cend();}
+
+reverse_iterator rbegin(){return a.crbegin();}
+const_reverse_iterator rbegin()const{return a.crbegin();}
+const_reverse_iterator crbegin()const{return a.crbegin();}
+reverse_iterator rend(){return a.crend();}
+const_reverse_iterator rend()const{return a.crend();}
+const_reverse_iterator crend()const{return a.crend();}
+
+[[nodiscard]] bool empty() const{return a.empty();}
+size_type size()const{return a.size();}
+size_type max_size()const{return a.max_size();}
+
+void clear(){a.clear();}
+
+std::pair<iterator,bool> insert( const value_type& value ){
+	auto rs=a.emplace(value,_Null_type{});
+	return {{rs.first},rs.second};
+}
+std::pair<iterator,bool> insert( value_type&& value ){
+	auto rs=a.emplace(std::move(value),_Null_type{});
+	return {{rs.first},rs.second};
+}
+template< std::input_iterator InputIt >
+void insert( InputIt first, InputIt last ){
+	while(first!=last)insert(*first++);
+}
+void insert( std::initializer_list<value_type> ilist ){
+	insert(ilist.begin(),ilist.end());
+}
+template< class... Args >
+std::pair<iterator,bool> emplace( Args&&... args ){
+	auto rs=a.emplace(Key(std::forward<Args>(args)...),_Null_type{});
+	return {{rs.first},rs.second};
+}
+
+Key erase( const_iterator pos ){return a.erase(pos.i).first;}
+std::optional<Key> erase(const Key& key){
+	auto it=a.find(key);
+	if(it==a.end())return std::nullopt;
+	return erase(it);
+}
+template<class K,__trans=Compare> requires(!std::convertible_to<K,iterator>)
+std::optional<Key> erase(K&& x){
+	auto it=a.find(x);
+	if(it==a.end())return std::nullopt;
+	return erase(it);
+}
+
+iterator erase_and_get_next(const_iterator pos){
+	return lower_bound(erase(pos));
+}
+iterator erase(const_iterator first,const_iterator last){
+	return a.erase(first.i,last.i);
+}
+
+void swap(set& other)noexcept{a.swap(other.a);}
+
+size_type count( const Key& key ) const{return a.count(key);}
+template< class K, __trans=Compare >
+size_type count( const K& x ) const{return a.count(x);}
+
+iterator find( const Key& key ){return a.find(key);}
+const_iterator find( const Key& key ) const{return a.find(key);}
+template< class K, __trans=Compare >
+iterator find( const K& x ){return a.find(x);}
+template< class K, __trans=Compare >
+const_iterator find( const K& x )const{return a.find(x);}
+
+bool contains(const Key& key)const{return a.contains(key);}
+template< class K, __trans=Compare >
+bool contains(const K& x)const{return a.contains(x);}
+
+std::pair<iterator,iterator> equal_range( const Key& key ){
+	auto res=a.equal_range(key);
+	return {{res.first},{res.second}};
+}
+std::pair<const_iterator,const_iterator> equal_range( const Key& key )const{
+	auto res=a.equal_range(key);
+	return {{res.first},{res.second}};
+}
+template< class K, __trans=Compare >
+std::pair<iterator,iterator> equal_range( const K& x ){
+	auto res=a.equal_range(x);
+	return {{res.first},{res.second}};
+}
+template< class K, __trans=Compare >
+std::pair<const_iterator,const_iterator> equal_range( const K& x )const{
+	auto res=a.equal_range(x);
+	return {{res.first},{res.second}};
+}
+
+iterator lower_bound( const Key& key ){return a.lower_bound(key);}
+const_iterator lower_bound( const Key& key )const{return a.lower_bound(key);}
+template< class K, __trans=Compare >
+iterator lower_bound( const K& x ){return a.lower_bound(x);}
+template< class K, __trans=Compare >
+const_iterator lower_bound( const K& x )const{return a.lower_bound(x);}
+
+iterator upper_bound( const Key& key ){return a.upper_bound(key);}
+const_iterator upper_bound( const Key& key )const{return a.upper_bound(key);}
+template< class K, __trans=Compare >
+iterator upper_bound( const K& x ){return a.upper_bound(x);}
+template< class K, __trans=Compare >
+const_iterator upper_bound( const K& x )const{return a.upper_bound(x);}
+
+key_compare key_comp()const{return a.key_comp();}
+value_compare value_comp()const{return a.key_comp();}
+
+};
+
+template< class Key, class Compare, class Alloc >
+bool operator==( const set<Key,Compare,Alloc>& lhs,
+	const set<Key,Compare,Alloc>& rhs ){return lhs.a==rhs.a;}
+	
+template< class Key, class Compare, class Alloc >
+auto operator<=>( const set<Key,Compare,Alloc>& lhs,
+	const set<Key,Compare,Alloc>& rhs ){return lhs.a<=>rhs.a;}
+
+}
+
+namespace std{
+	template<class Key,class Compare,class Alloc>
+	void swap(stl_with_memory_pool::set<Key,Compare,Alloc>&lhs,
+		stl_with_memory_pool::set<Key,Compare,Alloc>&rhs)noexcept{
+		lhs.swap(rhs);
+	}
+	
+	template<class Key,class Compare,class Alloc,class Pred>
+	auto erase_if(stl_with_memory_pool::set<Key,Compare,Alloc>&c,
+		Pred pred){
+		auto old_size = c.size();
+		for (auto i = c.begin(), last = c.end(); i != last; ) {
+			if (pred(*i)) {
+				i = c.erase_and_get_next(i);
+			} else {
+				++i;
+			}
+		}
+		return old_size - c.size();
+	}
+}
+
+#endif
