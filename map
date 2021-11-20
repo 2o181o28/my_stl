@@ -2,7 +2,7 @@
 #ifndef _MY_MAP_H
 #define _MY_MAP_H 1
 
-#include"std.h"
+#include"alloc.h"
 
 namespace stl_with_memory_pool{
 
@@ -447,9 +447,9 @@ map& operator=(std::initializer_list<value_type> ilist){
 }
 
 void swap(map& other)noexcept{
-	stl_with_memory_pool::swap(_Sz,other._Sz);
-	stl_with_memory_pool::swap(_Root,other._Root);
-	stl_with_memory_pool::swap(_Cmp,other._Cmp);
+	std::swap(_Sz,other._Sz);
+	std::swap(_Root,other._Root);
+	std::swap(_Cmp,other._Cmp);
 }
 
 iterator find(const Key& key){return _To_it(_Find(key));}
@@ -637,12 +637,6 @@ bool count(const K& x)const{return _Find(x)!=cend();}
 void _Debug()const{_Debug(_Root);}*/
 
 };
-
-template<class Key,class T,class Compare,class Alloc>
-void swap(map<Key,T,Compare,Alloc>& lhs,
-	map<Key,T,Compare,Alloc>& rhs){
-	lhs.swap(rhs);
-}
 
 template<class Key,class T,class Compare,class Alloc>
 bool operator==(const map<Key,T,Compare,Alloc>& lhs,

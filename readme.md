@@ -6,9 +6,9 @@
 
 **以下的全部内容，如果不加额外声明，均不会抛出任何异常，但并没有全加上`noexcept`声明**
 
-## allocator
+## alloc.h
 
-内存只分配，从不回收。如果加起来使用了超过`POOL_SIZE`指定的内存，是未定义行为。
+内含`allocator`的实现。内存只分配，从不回收。如果加起来使用了超过`POOL_SIZE`指定的内存，是未定义行为。
 
 ## vector
 
@@ -113,4 +113,31 @@ std::optional<std::pair<key_type,mapped_type>> erase(K&& x);
 iterator erase_and_get_next(iterator pos);
 iterator erase_and_get_next(const_iterator pos);
 iterator erase_and_get_next(const_iterator first, const_iterator last);
+```
+
+## priority_queue
+
+不支持各种带`allocator`的构造函数，以及`std::uses_allocator<stl_with_momory_pool::priority_queue>`。
+
+如果底层容器是`vector`，支持`pop`操作返回堆顶元素。
+
+向Rust学习，增添了更多的常用操作。比如从`initializer_list`构建队列，`clear`，`reserve`，遍历队列（显然，不能遍历时修改）等等操作。具体如下：
+
+```cpp
+using iterator=typename Container::const_iterator;
+using const_iterator=typename Container::const_iterator;
+
+priority_queue(std::initializer_list<value_type> ilist,
+	const Compare& comp=Compare())
+	:priority_queue(ilist.begin(),ilist.end(),comp){}
+
+iterator begin(){return c.cbegin();}
+const_iterator begin()const{return c.cbegin();}
+const_iterator cbegin()const{return c.cbegin();}
+iterator end(){return c.cend();}
+const_iterator end()const{return c.cend();}
+const_iterator cend()const{return c.cend();}
+	
+void clear(){c.clear();}
+void reserve(size_type new_cap){c.reserve(new_cap);}
 ```

@@ -11,39 +11,118 @@ struct priority_queue{
 	using container_type=Container;
 	using value_compare=Compare;
 	using value_type=typename Container::value_type;
-	using size_type=Container::size_type;
-	using reference=Container::reference;
-	using const_reference=Container::const_reference;
-	
+	using size_type=typename Container::size_type;
+	using reference=typename Container::reference;
+	using const_reference=typename Container::const_reference;
+	using iterator=typename Container::const_iterator;
+	using const_iterator=typename Container::const_iterator;
+
 protected:
 	Container c;Compare comp;
-	
+
+private:
+	void _Make_heap(int n){
+		for(int i=n/2-1;~i;i--)_Down_heap(i,n);
+	}
+
+	void _Up_heap(int k){
+		if(int f;k&&comp(c[f=k-1>>1],c[k])){
+			value_type tmp=std::move(c[k]);
+			do{
+				c[k]=std::move(c[f]);
+				k=f;
+			}while(k&&comp(c[f=k-1>>1],tmp));
+			c[k]=std::move(tmp);
+		}
+	}
+
+	void _Down_heap(int k,int n){
+		if(int ch=k*2+1;ch<n){
+			if(ch+1<n && comp(c[ch],c[ch+1]))ch++;
+			if(comp(c[k],c[ch])){
+				value_type tmp=std::move(c[k]);
+				do{
+					c[k]=std::move(c[ch]);
+					k=ch;
+					if((ch=k*2+1)>=n)break;
+					if(ch+1<n && comp(c[ch],c[ch+1]))ch++;
+				}while(comp(tmp,c[ch]));
+				c[k]=std::move(tmp);
+			}
+		}
+	}
+
+	void _Pop_heap(int n){
+		if(int k=0,ch=1;ch<n){
+			if(ch+1<n && comp(c[ch],c[ch+1]))ch++;
+			value_type tmp=std::move(c[k]);
+			do{
+				c[k]=std::move(c[ch]);
+				k=ch;
+				if((ch=k*2+1)>=n)break;
+				if(ch+1<n && comp(c[ch],c[ch+1]))ch++;
+			}while(1);
+			c[k]=std::move(tmp);_Up_heap(k);
+		}
+	}
+
 public:
 	priority_queue() : priority_queue(Compare(), Container()) { }
 	explicit priority_queue( const Compare& compare ): priority_queue(compare, Container()) { }
-	priority_queue( const Compare& compare, const Container& cont ):comp(compare),c(cont){}
-	priority_queue( const Compare& compare, Container&& cont ):comp(compare),c(std::move(cont)){}
-	priority_queue( const priority_queue& other ):c(other.c),comp(other.comp){}
-	priority_queue( priority_queue&& other ):c(std::move(other.c)),comp(std::move(other.comp)){}
+	priority_queue( const Compare& compare, const Container& cont ):c(cont),comp(compare){
+		_Make_heap(c.size());
+	}
+	priority_queue( const Compare& compare, Container&& cont ):c(std::move(cont)),comp(compare){
+		_Make_heap(c.size());
+	}
 	template<std::input_iterator InputIt>
 	priority_queue(InputIt first,InputIt last,const Compare& compare=Compare())
-		:c(first,last),comp(compare){_Make_heap(c.begin(),c.end());}
+		:c(first,last),comp(compare){_Make_heap(c.size());}
 	template<std::input_iterator InputIt>
-	priority_queue(InputIt first,InputIt last,const Compare& compare=Compare(),
+	priority_queue(InputIt first,InputIt last,const Compare& compare,
 		const Container& cont)
-		:c(cont),comp(compare){c.insert(c.end(),first,last);_Make_heap(c.begin(),c.end());}
+		:c(cont),comp(compare){c.insert(c.end(),first,last);_Make_heap(c.size());}
 	template<std::input_iterator InputIt>
-	priority_queue(InputIt first,InputIt last,const Compare& compare=Compare(),
+	priority_queue(InputIt first,InputIt last,const Compare& compare,
 		Container&& cont)
-		:c(std::move(cont)),comp(compare){c.insert(c.end(),first,last);_Make_heap(c.begin(),c.end());}
-	
-	const_reference top(){return c[0];}
+		:c(std::move(cont)),comp(compare){c.insert(c.end(),first,last);_Make_heap(c.size());}
+	priority_queue(std::initializer_list<value_type> ilist,
+		const Compare& comp=Compare())
+		:priority_queue(ilist.begin(),ilist.end(),comp){}
+
+	const_reference top()const{return c[0];}
 	[[nodiscard]] bool empty()const{return c.empty();}
-	size_type size(){return c.size();}
-	
-	//TODO
+	size_type size()const{return c.size();}
+
+	void push(const value_type& value){c.push_back(value);_Up_heap(c.size()-1);}
+	void push(value_type&& value){c.push_back(std::move(value));_Up_heap(c.size()-1);}
+	template<class... Args>
+	void emplace(Args&&... args){c.emplace_back(std::forward<Args>(args)...);_Up_heap(c.size()-1);}
+	auto pop(){std::swap(c[0],c.back());_Pop_heap(c.size()-1);return c.pop_back();}
+
+	void swap(priority_queue& other)noexcept{
+		std::swap(c,other.c);std::swap(comp,other.comp);
+	}
+
+	iterator begin(){return c.cbegin();}
+	const_iterator begin()const{return c.cbegin();}
+	const_iterator cbegin()const{return c.cbegin();}
+	iterator end(){return c.cend();}
+	const_iterator end()const{return c.cend();}
+	const_iterator cend()const{return c.cend();}
+
+	void clear(){c.clear();}
+	void reserve(size_type new_cap){c.reserve(new_cap);}
 };
 
+}
+
+namespace std{
+	template<class T,class Container,class Compare>
+	void swap(stl_with_memory_pool::priority_queue<T,Container,Compare>&lhs,
+		stl_with_memory_pool::priority_queue<T,Container,Compare>&rhs)noexcept{
+		lhs.swap(rhs);
+	}
 }
 
 #endif

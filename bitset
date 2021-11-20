@@ -2,7 +2,7 @@
 #ifndef _MY_BITSET_H
 #define _MY_BITSET_H 1
 
-#include"std.h"
+#include"alloc.h"
 
 namespace stl_with_memory_pool{
 

@@ -1,6 +1,6 @@
 // -*- C++ -*-
-#ifndef _MY_STD_H
-#define _MY_STD_H 1
+#ifndef _MY_ALLOC_H
+#define _MY_ALLOC_H 1
 
 #include<bits/stdc++.h>
 
@@ -48,21 +48,7 @@ template<class T> struct allocator{
 
 	void deallocate(T* p,size_type n)const{}
 };
-	
-template<class T> constexpr void swap(T& a,T& b){
-	T c=std::move(a);a=std::move(b);b=std::move(c);
-}
 
-template<class T,std::size_t N>
-constexpr void swap(T (&a)[N],T (&b)[N]){
-	auto bf=[&]{for(std::size_t i=0;i<N;i++)swap(a[i],b[i]);};
-	if _MEMCPYABLE(T){
-		if(constexpr auto s=N*sizeof(T);s>_MEMCPY_THRESHOLD){
-			alignas(T) char buf[s];T*c=(T*)buf;
-			memcpy(c,a,s);memcpy(a,b,s);memcpy(b,c,s);
-		}else bf();
-	}else bf();
-}
 }
 
 #undef _MEMCPYABLE

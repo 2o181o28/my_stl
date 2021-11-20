@@ -2,7 +2,7 @@
 #ifndef _MY_VECTOR_H
 #define _MY_VECTOR_H 1
 
-#include"std.h"
+#include"alloc.h"
 
 #define _MEMCPYABLE(T) constexpr(std::is_trivially_copyable_v<T>)
 #define _MEMCPY_THRESHOLD 8
@@ -332,9 +332,7 @@ public:
 		for(auto i=on;i<n;i++)_set(i,value);
 	}
 	constexpr void swap(vector& other)noexcept{
-		stl_with_memory_pool::swap(n,other.n);
-		stl_with_memory_pool::swap(p,other.p);
-		stl_with_memory_pool::swap(c,other.c);
+		std::swap(n,other.n);std::swap(p,other.p);std::swap(c,other.c);
 	}
 	constexpr void assign(size_type count,const T& value){
 		this->~vector();
@@ -366,11 +364,6 @@ public:
 		return *this;
 	}
 };
-	
-	template<class T,class Alloc>
-	constexpr void swap(vector<T,Alloc> &a,vector<T,Alloc> &b)noexcept{
-		a.swap(b);
-	}
 	
 	template<class T,class Alloc>
 	vector<T,Alloc> operator+(const vector<T,Alloc>& lhs,const vector<T,Alloc>& rhs){
