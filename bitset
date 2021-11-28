@@ -1,6 +1,6 @@
 // -*- C++ -*-
-#ifndef _MY_BITSET_H
-#define _MY_BITSET_H 1
+#ifndef _MY_bitset_H
+#define _MY_bitset_H 1
 
 #include"alloc.h"
 
@@ -31,12 +31,12 @@ template<size_t N> struct bitset{
 		}
 		reference& flip(){*v^=1ull<<k;return *this;}
 	};
-	
+
 private:
 	static constexpr size_t c=N+63>>6;
 	static constexpr __ull msk=N&63?(1ull<<(N&63))-1:-1ull;
 	mutable __ull a[c];
-	
+
 public:
 	constexpr bitset(){memset(a,0,sizeof a);}
 	constexpr bitset(__ull val){
@@ -46,7 +46,7 @@ public:
 	template<class CharT, class Traits, class Alloc>
 	explicit bitset(const std::basic_string<CharT,Traits,Alloc>&str,
 		typename std::basic_string<CharT,Traits,Alloc>::size_type pos=0,
-		typename std::basic_string<CharT,Traits,Alloc>::size_type 
+		typename std::basic_string<CharT,Traits,Alloc>::size_type
 			n=std::basic_string<CharT,Traits,Alloc>::npos,
 		CharT =CharT('0'), CharT one=CharT('1')){
 		memset(a,0,sizeof a);
@@ -64,12 +64,12 @@ public:
 		if(n==std::basic_string<CharT>::npos || n>l)n=l;
 		for(size_t i=0;i<n;i++)if(str[i]==one)set(n-1-i);
 	}
-	
+
 	bool operator==(const bitset& rhs)const{
 		a[c-1]&=msk,rhs.a[c-1]&=msk;
 		return !memcmp(a,rhs.a,sizeof a);
 	}
-	
+
 	constexpr bool operator[](size_t pos)const{
 		return a[pos>>6]>>(pos&63)&1;
 	}
@@ -80,7 +80,7 @@ public:
 		if(pos>=N)throw std::out_of_range("Debug your code and then use operator[] instead");
 		return a[pos>>6]>>(pos&63)&1;
 	}
-	
+
 	bool all()const{
 		for(size_t i=0;i+1<c;i++)if(a[i]!=-1ull)return false;
 		return !(~a[c-1]&msk);
@@ -95,17 +95,17 @@ public:
 		for(size_t i=0;i<c;i++)if(a[i])return false;
 		return true;
 	}
-	
+
 	size_t count()const{
 		size_t ans=0;a[c-1]&=msk;
 		for(size_t i=0;i<c;i++)ans+=std::popcount(a[i]);
 		return ans;
 	}
-	
+
 	constexpr size_t size()const{return N;}
 	constexpr const __ull* data()const{return a;}
 	constexpr __ull* data(){return a;}
-	
+
 	bitset& operator&=(const bitset& other){
 		for(size_t i=0;i<c;i++)a[i]&=other.a[i];
 		return *this;
@@ -123,7 +123,7 @@ public:
 		for(size_t i=0;i<c;i++)b.a[i]=~a[i];
 		return b;
 	}
-	
+
 	bitset operator<<(size_t pos)const{
 		bitset b;
 		size_t k=pos>>6,sft=(k+1<<6)-pos;
@@ -144,7 +144,7 @@ public:
 		for(size_t i=0;i<k;i++)a[i]=0;
 		return *this;
 	}
-	
+
 	bitset operator>>(size_t pos)const{
 		bitset b;a[c-1]&=msk;
 		size_t k=pos>>6,sft=(k+1<<6)-pos;
@@ -166,7 +166,7 @@ public:
 		for(size_t i=c-k;i<c;i++)a[i]=0;
 		return *this;
 	}
-	
+
 	bitset& set(){
 		memset(a,-1,sizeof a);
 		return *this;
@@ -192,10 +192,10 @@ public:
 		a[pos>>6]^=1ull<<(pos&63);
 		return *this;
 	}
-	
+
 	unsigned long to_ulong()const{a[c-1]&=msk;return a[0];}
 	unsigned long long to_ullong()const{a[c-1]&=msk;return a[0];}
-	
+
 	template<class CharT=char,
 		class Traits=std::char_traits<CharT>,
 		class Allocator=std::allocator<CharT>
@@ -206,7 +206,7 @@ public:
 			s[N-1-i]=one;
 		return s;
 	}
-	
+
 	size_t find_first()const{
 		a[c-1]&=msk;
 		for(size_t i=0;i<c;i++)if(a[i])return i<<6|std::countr_zero(a[i]);

@@ -27,7 +27,7 @@ template<class T,class Allocator=allocator<T>> struct vector{
 
 private:
 	size_type n,c;T* p;
-	
+
 	constexpr void _realloc(){
 		T* op=p;
 		p=Allocator().allocate(c);
@@ -43,7 +43,7 @@ private:
 			else bf();
 		}else bf();
 	}
-	
+
 	constexpr void _set_0(int i,int j){
 		auto bf=[&]{
 			auto a=Allocator();
@@ -63,7 +63,7 @@ private:
 			else std::construct_at(p+i,value);
 		}else std::construct_at(p+i,value);
 	}
-	
+
 	constexpr void _move_bk(int j,int i){
 		int c=j-i;
 		auto bf=[&]{
@@ -92,7 +92,7 @@ private:
 			else bf();
 		}else bf();
 	}
-	
+
 public:
 	constexpr size_type capacity()const{return c;}
 	constexpr size_type size()const{return n;}
@@ -111,40 +111,40 @@ public:
 
 	constexpr T& operator[](size_type pos){return p[pos];}
 	constexpr const T& operator[](size_type pos)const{return p[pos];}
-	
+
 	constexpr T& front(){return *p;}
 	constexpr const T& front()const{return *p;}
-	
+
 	constexpr T& back(){return p[(int)n-1];}
 	constexpr const T& back()const{return p[(int)n-1];}
-	
+
 	constexpr iterator begin(){return p;}
 	constexpr const_iterator begin()const{return p;}
 	constexpr const_iterator cbegin()const{return p;}
 	constexpr iterator end(){return p+n;}
 	constexpr const_iterator end()const{return p+n;}
 	constexpr const_iterator cend()const{return p+n;}
-	
+
 	constexpr reverse_iterator rbegin(){return reverse_iterator{p+n};}
 	constexpr const_reverse_iterator rbegin()const{return const_reverse_iterator{p+n};}
 	constexpr const_reverse_iterator crbegin()const{return const_reverse_iterator{p+n};}
 	constexpr reverse_iterator rend(){return reverse_iterator{p};}
 	constexpr const_reverse_iterator rend()const{return const_reverse_iterator{p};}
 	constexpr const_reverse_iterator crend()const{return const_reverse_iterator{p};}
-	
+
 	constexpr bool empty()const{return !n;}
 	constexpr size_type max_size()const{return 1e9;}
-	
+
 	constexpr void reserve(size_type cap){
 		if(cap>c)c=cap,_realloc();
 	}
 	constexpr void shrink_to_fit(){}
 	constexpr void clear(){n=0;}
-	
+
 	constexpr ~vector(){
 		for(size_type i=0;i<n;i++)p[i].~T();
 	}
-	
+
 	constexpr vector():n(0),c(0),p(nullptr){}
 	constexpr explicit vector(const Allocator&):vector(){}
 	constexpr vector(size_type count,const T&value,const Allocator& alloc=Allocator()):n(count),c(count){
@@ -201,7 +201,7 @@ public:
 			else bf();
 		}else bf();
 	}
-	
+
 	constexpr iterator insert(const_iterator pos,const T& value){
 		int i=pos-p;
 		if(n==c)c=(c+1)*2,_realloc();
@@ -255,7 +255,7 @@ public:
 	constexpr iterator insert(const_iterator pos,std::initializer_list<T> ilist){
 		return insert(pos,ilist.begin(),ilist.end());
 	}
-	
+
 	//FIXME: args may refer to self
 	template<class... Args>
 	constexpr iterator emplace(const_iterator pos,Args&&... args){
@@ -271,7 +271,7 @@ public:
 		std::construct_at(p+n,std::forward<Args>(args)...);
 		return p[n++];
 	}
-	
+
 	constexpr iterator erase(const_iterator pos){
 		int i=pos-p;
 		if(i+1!=n)_move_fr(i,i+1);
@@ -282,7 +282,7 @@ public:
 		if(j!=(int)n)_move_fr(i,j);
 		n-=j-i;return (iterator)first;
 	}
-	
+
 	constexpr void push_back(const T& value){
 		if(n==c)c=(c+1)*2,_realloc();
 		std::construct_at(p+n++,value);
@@ -291,7 +291,7 @@ public:
 		if(n==c)c=(c+1)*2,_realloc();
 		std::construct_at(p+n++,std::move(value));
 	}
-	
+
 	constexpr vector& operator+=(const T& value){
 		push_back(value);
 		return *this;
@@ -314,13 +314,13 @@ public:
 		insert(end(),ilist.begin(),ilist.end());
 		return *this;
 	}
-	
+
 	constexpr T pop_back(){
 		//WARNING: returns the last element rather than void
 		T b=std::move(p[--n]);
 		return b;
 	}
-	
+
 	constexpr void resize(size_type count){
 		auto on=n;n=count;
 		if(n>c)c=n,_realloc();
@@ -347,7 +347,7 @@ public:
 		this->~vector();
 		std::construct_at(this,ilist);
 	}
-	
+
 	constexpr vector& operator=(const vector& other){
 		this->~vector();
 		std::construct_at(this,other);
@@ -364,73 +364,89 @@ public:
 		return *this;
 	}
 };
-	
-	template<class T,class Alloc>
-	vector<T,Alloc> operator+(const vector<T,Alloc>& lhs,const vector<T,Alloc>& rhs){
-		auto ans=lhs;ans+=rhs;return ans;
-	}
-	template<class T,class Alloc>
-	vector<T,Alloc> operator+(const vector<T,Alloc>& lhs,const T& rhs){
-		auto ans=lhs;ans+=rhs;return ans;
-	}
-	template<class T,class Alloc>
-	vector<T,Alloc> operator+(const vector<T,Alloc>& lhs,T&& rhs){
-		auto ans=lhs;ans+=std::move(rhs);return ans;
-	}
-	template<class T,class Alloc>
-	vector<T,Alloc> operator+(const T& lhs,const vector<T,Alloc>& rhs){
-		auto ans=rhs;ans.insert(ans.begin(),lhs);return ans;
-	}
-	template<class T,class Alloc>
-	vector<T,Alloc> operator+(T&& lhs,const vector<T,Alloc>& rhs){
-		auto ans=rhs;ans.emplace(ans.begin(),std::move(lhs));return ans;
-	}
-	template<class T,class Alloc>
-	vector<T,Alloc> operator+(vector<T,Alloc>&& lhs,vector<T,Alloc>&& rhs){
-		auto ans=std::move(lhs);ans+=std::move(rhs);return ans;
-	}
-	template<class T,class Alloc>
-	vector<T,Alloc> operator+(vector<T,Alloc>&& lhs,const vector<T,Alloc>& rhs){
-		auto ans=std::move(lhs);ans+=rhs;return ans;
-	}
-	template<class T,class Alloc>
-	vector<T,Alloc> operator+(vector<T,Alloc>&& lhs,const T& rhs){
-		auto ans=std::move(lhs);ans+=rhs;return ans;
-	}
-	template<class T,class Alloc>
-	vector<T,Alloc> operator+(vector<T,Alloc>&& lhs,T&& rhs){
-		auto ans=std::move(lhs);ans+=std::move(rhs);return ans;
-	}
-	template<class T,class Alloc>
-	vector<T,Alloc> operator+(const vector<T,Alloc>& lhs,vector<T,Alloc>&& rhs){
-		auto ans=lhs;ans+=std::move(rhs);return ans;
-	}
-	template<class T,class Alloc>
-	vector<T,Alloc> operator+(const T& lhs,vector<T,Alloc>&& rhs){
-		auto ans=std::move(rhs);ans.insert(ans.begin(),lhs);return ans;
-	}
-	template<class T,class Alloc>
-	vector<T,Alloc> operator+(T&& lhs,vector<T,Alloc>&& rhs){
-		auto ans=std::move(rhs);ans.emplace(ans.begin(),std::move(lhs));return ans;
-	}
+
+template<class T,class Alloc>
+vector<T,Alloc> operator+(const vector<T,Alloc>& lhs,const vector<T,Alloc>& rhs){
+	auto ans=lhs;ans+=rhs;return ans;
+}
+template<class T,class Alloc>
+vector<T,Alloc> operator+(const vector<T,Alloc>& lhs,const T& rhs){
+	auto ans=lhs;ans+=rhs;return ans;
+}
+template<class T,class Alloc>
+vector<T,Alloc> operator+(const vector<T,Alloc>& lhs,T&& rhs){
+	auto ans=lhs;ans+=std::move(rhs);return ans;
+}
+template<class T,class Alloc>
+vector<T,Alloc> operator+(const T& lhs,const vector<T,Alloc>& rhs){
+	auto ans=rhs;ans.insert(ans.begin(),lhs);return ans;
+}
+template<class T,class Alloc>
+vector<T,Alloc> operator+(T&& lhs,const vector<T,Alloc>& rhs){
+	auto ans=rhs;ans.emplace(ans.begin(),std::move(lhs));return ans;
+}
+template<class T,class Alloc>
+vector<T,Alloc> operator+(vector<T,Alloc>&& lhs,vector<T,Alloc>&& rhs){
+	auto ans=std::move(lhs);ans+=std::move(rhs);return ans;
+}
+template<class T,class Alloc>
+vector<T,Alloc> operator+(vector<T,Alloc>&& lhs,const vector<T,Alloc>& rhs){
+	auto ans=std::move(lhs);ans+=rhs;return ans;
+}
+template<class T,class Alloc>
+vector<T,Alloc> operator+(vector<T,Alloc>&& lhs,const T& rhs){
+	auto ans=std::move(lhs);ans+=rhs;return ans;
+}
+template<class T,class Alloc>
+vector<T,Alloc> operator+(vector<T,Alloc>&& lhs,T&& rhs){
+	auto ans=std::move(lhs);ans+=std::move(rhs);return ans;
+}
+template<class T,class Alloc>
+vector<T,Alloc> operator+(const vector<T,Alloc>& lhs,vector<T,Alloc>&& rhs){
+	auto ans=lhs;ans+=std::move(rhs);return ans;
+}
+template<class T,class Alloc>
+vector<T,Alloc> operator+(const T& lhs,vector<T,Alloc>&& rhs){
+	auto ans=std::move(rhs);ans.insert(ans.begin(),lhs);return ans;
+}
+template<class T,class Alloc>
+vector<T,Alloc> operator+(T&& lhs,vector<T,Alloc>&& rhs){
+	auto ans=std::move(rhs);ans.emplace(ans.begin(),std::move(lhs));return ans;
 }
 
+template<class T,class Alloc>
+constexpr bool operator==(const vector<T,Alloc>&a,const vector<T,Alloc>&b){
+	if(a.size()!=b.size())return 0;
+	if constexpr(std::is_integral_v<T>)
+		return !memcmp(a.data(),b.data(),a.size()*sizeof(T));
+	for(uint32_t i=0;i<a.size();i++)if(a[i]!=b[i])return 0;
+	return 1;
+}
+template<class T,class Alloc>
+constexpr auto operator<=>(const vector<T,Alloc>&a,const vector<T,Alloc>&b){
+	for(uint32_t i=0;i<a.size() && i<b.size();i++)
+		if(auto k=a[i]<=>b[i];k!=std::weak_ordering::equivalent)return k;
+	return a.size()<=>b.size();
+}
+}
+
+#define Vector stl_with_memory_pool::vector
 namespace std{
 	template<class T,class Alloc>
-	constexpr void swap(stl_with_memory_pool::vector<T,Alloc> &a,stl_with_memory_pool::vector<T,Alloc> &b)noexcept{
+	constexpr void swap(Vector<T,Alloc> &a,Vector<T,Alloc> &b)noexcept{
 		a.swap(b);
 	}
-	
-	template<class T,class Alloc,class U> 
-	constexpr auto erase(stl_with_memory_pool::vector<T,Alloc>& c,const U& value){
+
+	template<class T,class Alloc,class U>
+	constexpr auto erase(Vector<T,Alloc>& c,const U& value){
 		auto it = std::remove(c.begin(), c.end(), value);
 		auto r = std::distance(it, c.end());
 		c.erase(it, c.end());
 		return r;
 	}
-	
-	template<class T,class Alloc,class Pred> 
-	constexpr auto erase_if(stl_with_memory_pool::vector<T,Alloc>& c,Pred pred){
+
+	template<class T,class Alloc,class Pred>
+	constexpr auto erase_if(Vector<T,Alloc>& c,Pred pred){
 		auto it = std::remove_if(c.begin(), c.end(), pred);
 		auto r = std::distance(it, c.end());
 		c.erase(it, c.end());
@@ -438,22 +454,7 @@ namespace std{
 	}
 }
 
-template<class T,class Alloc>
-constexpr bool operator==(const stl_with_memory_pool::vector<T,Alloc>&a,const stl_with_memory_pool::vector<T,Alloc>&b){
-	if(a.size()!=b.size())return 0;
-	if constexpr(std::is_integral_v<T>)
-		return !memcmp(a.data(),b.data(),a.size()*sizeof(T));
-	for(uint32_t i=0;i<a.size();i++)if(a[i]!=b[i])return 0;
-	return 1;
-}
-
-template<class T,class Alloc>
-constexpr auto operator<=>(const stl_with_memory_pool::vector<T,Alloc>&a,const stl_with_memory_pool::vector<T,Alloc>&b){
-	for(uint32_t i=0;i<a.size() && i<b.size();i++)
-		if(auto k=a[i]<=>b[i];k!=std::weak_ordering::equivalent)return k;
-	return a.size()<=>b.size();
-}
-
+#undef Vector
 #undef _MEMCPYABLE
 #undef _MEMSETABLE
 #undef _MEMCPY_THRESHOLD

@@ -68,7 +68,7 @@ template<class T,class Alloc>
 
 ## bitset
 
-与STL完全相反，在任何情况下都会使用64位的压位。貌似C++标准没有要求长度可以为0，故不允许`bitset<0>`。
+在任何情况下都会使用64位的压位。貌似C++标准没有要求长度可以为0，故不允许`bitset<0>`。
 
 由于使用了`memset`，你不能创建一个`constexpr bitset<N>`。
 
@@ -112,12 +112,20 @@ std::optional<std::pair<key_type,mapped_type>> erase(K&& x);
 
 iterator erase_and_get_next(iterator pos);
 iterator erase_and_get_next(const_iterator pos);
-iterator erase_and_get_next(const_iterator first, const_iterator last);
+iterator erase(const_iterator first, const_iterator last);
 ```
 
 ## set,multiset
 
-是`map`的封装，故各项特色和`map`相同。`multiset::count`是O(log(n))的。
+是`map`的封装，故各项特色和`map`相同。
+
+`multiset::count`是O(log(n))的。
+
+不保证`multiset`中等价元素的顺序是按照插入顺序的。
+
+从`multiset`中删除等于一个值的全部元素时仍只返回删除的元素个数。
+
+`multiset`不支持`iterator erase( const_iterator first, const_iterator last )`，因为相等元素的顺序实际上会随着删除而改变。
 
 ## priority_queue
 

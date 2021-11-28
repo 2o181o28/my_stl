@@ -164,8 +164,8 @@ template<class K> std::pair<iterator,bool> _Find_or_insert(K x){
 }
 
 _Vl _Erase(iterator pos){
-	auto ret=std::move(*pos);
 	_Node* p=pos.p;short i=pos.k;
+	_Vl ret=std::move(p->dat()[i]);
 	if(!_Leaf(*p)){
 		_Node* q=(_Node*)_Find_first(p->ch[i+1]);
 		p->dat()[i]=std::move(q->dat()[0]);
@@ -544,7 +544,7 @@ std::optional<_Vl> erase(const Key& key){
 	if(it==end())return std::nullopt;
 	return _Erase(it);
 }
-template<class K,__trans=Compare> requires(!std::convertible_to<K,iterator> && 	
+template<class K,__trans=Compare> requires(!std::convertible_to<K,iterator> &&
 	!std::convertible_to<K,const_iterator>)
 std::optional<_Vl> erase(K&& x){
 	auto it=_To_it(_Find(x));
@@ -648,18 +648,18 @@ auto operator<=>(const map<Key,T,Compare,Alloc>& lhs,
 		if(auto k=*it<=>*it1;k!=std::weak_ordering::equivalent)return k;
 	return lhs.size()<=>rhs.size();
 }
-
 }
 
+#define Map stl_with_memory_pool::map
 namespace std{
 	template<class Key,class T,class Compare,class Alloc>
-	void swap(stl_with_memory_pool::map<Key,T,Compare,Alloc>& lhs,
-		stl_with_memory_pool::map<Key,T,Compare,Alloc>& rhs){
+	void swap(Map<Key,T,Compare,Alloc>& lhs,
+		Map<Key,T,Compare,Alloc>& rhs){
 		lhs.swap(rhs);
 	}
 
 	template<class Key,class T,class Compare,class Alloc,class Pred>
-	auto erase_if(stl_with_memory_pool::map<Key,T,Compare,Alloc>& c,Pred pred){
+	auto erase_if(Map<Key,T,Compare,Alloc>& c,Pred pred){
 		auto old_size = c.size();
 		for (auto i = c.begin(), last = c.end(); i != last; ) {
 			if (pred(*i)) {
@@ -671,5 +671,6 @@ namespace std{
 		return old_size - c.size();
 	}
 }
+#undef Map
 
 #endif
