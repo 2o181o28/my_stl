@@ -139,7 +139,9 @@ public:
 		if(cap>c)c=cap,_realloc();
 	}
 	constexpr void shrink_to_fit(){}
-	constexpr void clear(){n=0;}
+	constexpr void clear(){
+		this->~vector();n=0;
+	}
 
 	constexpr ~vector(){
 		for(size_type i=0;i<n;i++)p[i].~T();

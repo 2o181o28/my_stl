@@ -1,5 +1,18 @@
 我自己的STL实现，使用C++20语法。
 
+# 建议使用方法
+
+```cpp
+#include"vector"
+using namespace stl_with_memory_pool;
+
+int main(){
+	POOL_SIZE(1_MB);
+	vector v{"Hello", "world"};
+	for(auto&s:v)std::cout<<s<<"\n";
+}
+```
+
 # 行为
 
 只列出和STL不一致的行为。
