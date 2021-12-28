@@ -105,7 +105,7 @@ _Node* _New_node(short n,short id,_Node* fa){
 	return p;
 }
 
-template<class K> std::pair<iterator,bool> _Find_or_insert(K x){
+template<class K> std::pair<iterator,bool> _Find_or_insert(K&& x){
 	_Node* p=_Root;short i;
 	for(;;p=p->ch[i]){
 		for(i=0;i<p->n && _Lt(p->dat()[i].first,x);i++);
@@ -117,8 +117,8 @@ template<class K> std::pair<iterator,bool> _Find_or_insert(K x){
 		if(j+1<p->n)p->dat()[j+1]=std::move(p->dat()[j]);
 		else std::construct_at(p->dat()+j+1,std::move(p->dat()[j]));
 	}
-	if(i<p->n)p->dat()[i].first=std::move(x);
-	else std::construct_at(std::addressof(p->dat()[i].first),std::move(x));
+	if(i<p->n)p->dat()[i].first=std::forward<K>(x);
+	else std::construct_at(std::addressof(p->dat()[i].first),std::forward<K>(x));
 	p->n++;_Sz++;
 	iterator ret(_Root,p,i);bool fix=false;
 
@@ -461,18 +461,18 @@ const T& at(const Key& key)const{
 }
 
 std::pair<iterator,bool> insert(const value_type& value){
-	auto ret=_Find_or_insert<const Key&>(value.first);
+	auto ret=_Find_or_insert(value.first);
 	if(ret.second)std::construct_at(std::addressof(ret.first->second),value.second);
 	return ret;
 }
 std::pair<iterator,bool> insert(value_type&& value){
-	auto ret=_Find_or_insert<const Key&&>(std::move(value.first));
+	auto ret=_Find_or_insert(std::move(value.first));
 	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::move(value.second));
 	return ret;
 }
 template<__rv_as<value_type> P>
 std::pair<iterator,bool> insert(P&& value){
-	auto ret=_Find_or_insert<decltype(value.first)&&>(std::move(value.first));
+	auto ret=_Find_or_insert(std::move(value.first));
 	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::move(value.second));
 	return ret;
 }
@@ -486,14 +486,14 @@ void insert(std::initializer_list<value_type> ilist){
 
 template<class M>
 std::pair<iterator,bool> insert_or_assign(const key_type& k,M&& obj){
-	auto ret=_Find_or_insert<const Key&>(k);
+	auto ret=_Find_or_insert(k);
 	if(!ret.second)ret.first->second=std::move(obj);
 	else std::construct_at(std::addressof(ret.first->second),std::move(obj));
 	return ret;
 }
 template<class M>
 std::pair<iterator,bool> insert_or_assign(key_type&& k,M&& obj){
-	auto ret=_Find_or_insert<Key&&>(std::move(k));
+	auto ret=_Find_or_insert(std::move(k));
 	if(!ret.second)ret.first->second=std::move(obj);
 	else std::construct_at(std::addressof(ret.first->second),std::move(obj));
 	return ret;
@@ -501,27 +501,27 @@ std::pair<iterator,bool> insert_or_assign(key_type&& k,M&& obj){
 
 template<class... Args>
 std::pair<iterator,bool> emplace(Args&&... args){
-	value_type value(std::forward<Args>(args)...);
-	auto ret=_Find_or_insert<const Key&&>(std::move(value.first));
+	_Vl value(std::forward<Args>(args)...);
+	auto ret=_Find_or_insert(std::move(value.first));
 	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::move(value.second));
 	return ret;
 }
 
 template<class... Args>
 std::pair<iterator,bool> try_emplace(const Key& k,Args&&... args){
-	auto ret=_Find_or_insert<const Key&>(k);
+	auto ret=_Find_or_insert(k);
 	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::forward<Args>(args)...);
 	return ret;
 }
 template<class... Args>
 std::pair<iterator,bool> try_emplace(Key&& k,Args&&... args){
-	auto ret=_Find_or_insert<Key&&>(std::move(k));
+	auto ret=_Find_or_insert(std::move(k));
 	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::forward<Args>(args)...);
 	return ret;
 }
 
 T& operator[](const Key& key){
-	auto r=_Find_or_insert<const Key&>(key);
+	auto r=_Find_or_insert(key);
 	if(r.second){
 		auto a=_T_alloc();
 		std::allocator_traits<_T_alloc>::construct(a,std::addressof(r.first->second));
@@ -529,7 +529,7 @@ T& operator[](const Key& key){
 	return r.first->second;
 }
 T& operator[](Key&& key){
-	auto r=_Find_or_insert<Key&&>(std::move(key));
+	auto r=_Find_or_insert(std::move(key));
 	if(r.second){
 		auto a=_T_alloc();
 		std::allocator_traits<_T_alloc>::construct(a,std::addressof(r.first->second));
