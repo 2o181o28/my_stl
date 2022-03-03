@@ -53,7 +53,16 @@ bool _Lt(const X& a,const Y& b)const{return a<b;}
 template<class X,class Y,__trans=Compare>
 bool _Eq(const X& a,const Y& b)const{return !(a<b) && !(b<a);}
 
-using _Vl=std::pair<Key,T>;
+template<bool b,class A,class B> struct _If_else{using type=B;};
+template<class A,class B> struct _If_else<true,A,B>{using type=A;};
+template<class A,class B> struct _Tight_pair{
+	A first;
+	[[no_unique_address]] B second;
+	_Tight_pair(const A& a,const B& b):first(a),second(b){}
+	_Tight_pair(A&& a,B&& b):first(std::move(a)),second(std::move(b)){}
+};
+
+using _Vl=typename _If_else<std::is_empty_v<T>,_Tight_pair<Key,T>,std::pair<Key,T>>::type;
 
 static constexpr int B=32;
 struct _Node{
@@ -285,8 +294,8 @@ public:
 		if(p==rhs.p && p==nullptr)return true;
 		return p==rhs.p && k==rhs.k;
 	}
-	value_type& operator*()const{return ((value_type*)p->dat())[k];}
-	value_type* operator->()const{return (value_type*)p->dat()+k;}
+	value_type& operator*()const{return *(value_type*)(p->dat()+k);}
+	value_type* operator->()const{return (value_type*)(p->dat()+k);}
 	iterator& operator++(){
 		if(!_Leaf(*p))p=(_Node*)_Find_first(p->ch[k+1]),k=0;
 		else{
@@ -334,8 +343,8 @@ public:
 		if(p==rhs.p && p==nullptr)return true;
 		return p==rhs.p && k==rhs.k;
 	}
-	value_type& operator*()const{return ((value_type*)p->dat())[k];}
-	value_type* operator->()const{return (value_type*)p->dat()+k;}
+	value_type& operator*()const{return *(value_type*)(p->dat()+k);}
+	value_type* operator->()const{return (value_type*)(p->dat()+k);}
 	const_iterator& operator++(){
 		if(!_Leaf(*p))p=_Find_first(p->ch[k+1]),k=0;
 		else{
@@ -462,18 +471,21 @@ const T& at(const Key& key)const{
 
 std::pair<iterator,bool> insert(const value_type& value){
 	auto ret=_Find_or_insert(value.first);
-	if(ret.second)std::construct_at(std::addressof(ret.first->second),value.second);
+	if(!std::is_empty_v<T> && ret.second)
+		std::construct_at(std::addressof(ret.first->second),value.second);
 	return ret;
 }
 std::pair<iterator,bool> insert(value_type&& value){
 	auto ret=_Find_or_insert(std::move(value.first));
-	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::move(value.second));
+	if(!std::is_empty_v<T> && ret.second)
+		std::construct_at(std::addressof(ret.first->second),std::move(value.second));
 	return ret;
 }
 template<__rv_as<value_type> P>
 std::pair<iterator,bool> insert(P&& value){
 	auto ret=_Find_or_insert(std::move(value.first));
-	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::move(value.second));
+	if(!std::is_empty_v<T> && ret.second)
+		std::construct_at(std::addressof(ret.first->second),std::move(value.second));
 	return ret;
 }
 template<std::input_iterator InputIt>
@@ -487,15 +499,19 @@ void insert(std::initializer_list<value_type> ilist){
 template<class M>
 std::pair<iterator,bool> insert_or_assign(const key_type& k,M&& obj){
 	auto ret=_Find_or_insert(k);
-	if(!ret.second)ret.first->second=std::move(obj);
-	else std::construct_at(std::addressof(ret.first->second),std::move(obj));
+	if constexpr(!std::is_empty_v<T>){
+		if(!ret.second)ret.first->second=std::move(obj);
+		else std::construct_at(std::addressof(ret.first->second),std::move(obj));
+	}
 	return ret;
 }
 template<class M>
 std::pair<iterator,bool> insert_or_assign(key_type&& k,M&& obj){
 	auto ret=_Find_or_insert(std::move(k));
-	if(!ret.second)ret.first->second=std::move(obj);
-	else std::construct_at(std::addressof(ret.first->second),std::move(obj));
+	if constexpr(!std::is_empty_v<T>){
+		if(!ret.second)ret.first->second=std::move(obj);
+		else std::construct_at(std::addressof(ret.first->second),std::move(obj));
+	}
 	return ret;
 }
 
@@ -503,26 +519,29 @@ template<class... Args>
 std::pair<iterator,bool> emplace(Args&&... args){
 	_Vl value(std::forward<Args>(args)...);
 	auto ret=_Find_or_insert(std::move(value.first));
-	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::move(value.second));
+	if(!std::is_empty_v<T> && ret.second)
+		std::construct_at(std::addressof(ret.first->second),std::move(value.second));
 	return ret;
 }
 
 template<class... Args>
 std::pair<iterator,bool> try_emplace(const Key& k,Args&&... args){
 	auto ret=_Find_or_insert(k);
-	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::forward<Args>(args)...);
+	if(!std::is_empty_v<T> && ret.second)
+		std::construct_at(std::addressof(ret.first->second),std::forward<Args>(args)...);
 	return ret;
 }
 template<class... Args>
 std::pair<iterator,bool> try_emplace(Key&& k,Args&&... args){
 	auto ret=_Find_or_insert(std::move(k));
-	if(ret.second)std::construct_at(std::addressof(ret.first->second),std::forward<Args>(args)...);
+	if(!std::is_empty_v<T> && ret.second)
+		std::construct_at(std::addressof(ret.first->second),std::forward<Args>(args)...);
 	return ret;
 }
 
 T& operator[](const Key& key){
 	auto r=_Find_or_insert(key);
-	if(r.second){
+	if(!std::is_empty_v<T> && r.second){
 		auto a=_T_alloc();
 		std::allocator_traits<_T_alloc>::construct(a,std::addressof(r.first->second));
 	}
@@ -530,7 +549,7 @@ T& operator[](const Key& key){
 }
 T& operator[](Key&& key){
 	auto r=_Find_or_insert(std::move(key));
-	if(r.second){
+	if(!std::is_empty_v<T> && r.second){
 		auto a=_T_alloc();
 		std::allocator_traits<_T_alloc>::construct(a,std::addressof(r.first->second));
 	}
@@ -612,20 +631,6 @@ bool contains(const K& x)const{return _Find(x)!=cend();}
 size_type count(const Key& key)const{return _Find(key)!=cend();}
 template<class K,__trans=Compare>
 bool count(const K& x)const{return _Find(x)!=cend();}
-
-/*void _Debug(const _Node* p,int d=0)const{
-	printf("%*sNode %p(n=%d):\n",d*4,"",p,p->n);
-	for(int i=0;i<=p->n;i++){
-		if(p->ch){
-			printf("%*sCh #%d: %p\n",d*4+2,"",i,p->ch[i]);
-			_Debug(p->ch[i],d+1);
-		}
-		if(i<p->n)
-			printf("%*sDat #%d: %d %d\n",d*4+2,"",i,p->dat()[i].first,p->dat()[i].second);
-	}
-}
-void _Debug()const{_Debug(_Root);}*/
-
 };
 
 template<class Key,class T,class Compare,class Alloc>

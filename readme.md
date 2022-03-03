@@ -111,6 +111,8 @@ size_t find_next(size_t pos)const;
 
 不保证`insert`、`erase`等操作后，其余迭代器和引用依然合法。
 
+由于值为空类型时会进行优化，当值为空类型的时候不支持使用`operator[]`等方法来赋值（反正这个赋值也没有意义）。
+
 `erase`操作改为返回被删除的键-值对（向Rust学习）。新增`erase_and_get_next`函数，达成原有`erase`的功能，但**没有均摊O(1)的复杂度保证**。具体声明如下:
 
 ```cpp
